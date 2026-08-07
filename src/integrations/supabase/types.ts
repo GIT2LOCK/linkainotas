@@ -227,9 +227,11 @@ export type Database = {
       }
       usuarios: {
         Row: {
+          ariia_user_id: string | null
           ativo: boolean | null
           atualizado_em: string | null
           auth_user_id: string
+          avatar_url: string | null
           criado_em: string | null
           email: string
           empresa_id: number | null
@@ -238,20 +240,24 @@ export type Database = {
           permissao: string | null
         }
         Insert: {
+          ariia_user_id?: string | null
           ativo?: boolean | null
           atualizado_em?: string | null
           auth_user_id: string
+          avatar_url?: string | null
           criado_em?: string | null
           email: string
           empresa_id?: number | null
-          id: number
+          id?: number
           nome: string
           permissao?: string | null
         }
         Update: {
+          ariia_user_id?: string | null
           ativo?: boolean | null
           atualizado_em?: string | null
           auth_user_id?: string
+          avatar_url?: string | null
           criado_em?: string | null
           email?: string
           empresa_id?: number | null
@@ -259,7 +265,15 @@ export type Database = {
           nome?: string
           permissao?: string | null
         }
-        Relationships: []
+        Relationships: [
+          {
+            foreignKeyName: "usuarios_empresa_id_fkey"
+            columns: ["empresa_id"]
+            isOneToOne: false
+            referencedRelation: "empresas"
+            referencedColumns: ["id"]
+          },
+        ]
       }
     }
     Views: {
@@ -274,6 +288,7 @@ export type Database = {
           pedido_id: string
         }[]
       }
+      custom_access_token_hook: { Args: { event: Json }; Returns: Json }
       get_usuario_atual: {
         Args: never
         Returns: {
@@ -284,6 +299,11 @@ export type Database = {
           permissao: string
         }[]
       }
+      jwt_ariia_user_id: { Args: never; Returns: string }
+      jwt_ativo: { Args: never; Returns: boolean }
+      jwt_empresa_id: { Args: never; Returns: number }
+      jwt_has_permissao: { Args: { _permissoes: string[] }; Returns: boolean }
+      jwt_permissao: { Args: never; Returns: string }
       vincular_nf_pedido: {
         Args: { p_nf_id: string; p_pedido_id: string }
         Returns: undefined
