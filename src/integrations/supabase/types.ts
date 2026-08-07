@@ -14,7 +14,39 @@ export type Database = {
   }
   public: {
     Tables: {
-      [_ in never]: never
+      profiles: {
+        Row: {
+          ariia_user_id: string
+          avatar_url: string | null
+          created_at: string
+          email: string | null
+          id: string
+          last_sync_at: string
+          nome: string | null
+          updated_at: string
+        }
+        Insert: {
+          ariia_user_id: string
+          avatar_url?: string | null
+          created_at?: string
+          email?: string | null
+          id: string
+          last_sync_at?: string
+          nome?: string | null
+          updated_at?: string
+        }
+        Update: {
+          ariia_user_id?: string
+          avatar_url?: string | null
+          created_at?: string
+          email?: string | null
+          id?: string
+          last_sync_at?: string
+          nome?: string | null
+          updated_at?: string
+        }
+        Relationships: []
+      }
     }
     Views: {
       [_ in never]: never
