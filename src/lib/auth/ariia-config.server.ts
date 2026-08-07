@@ -31,6 +31,55 @@ export function getAriiaConfig(): AriiaConfig {
   };
 }
 
+/**
+ * Redirect URIs registrados no client do Ariia.
+ *
+ * `ARIIA_REDIRECT_URI` é o oficial (domínio principal: linkai.2lock.app.br).
+ * `ARIIA_REDIRECT_URIS` (opcional, separado por vírgula) permite manter
+ * domínios alternativos registrados sem trocar o principal.
+ */
+export function getRegisteredRedirectUris(): string[] {
+  const primary = requireEnv("ARIIA_REDIRECT_URI");
+  const extra = (process.env["ARIIA_REDIRECT_URIS"] ?? "")
+    .split(",")
+    .map((value) => value.trim())
+    .filter(Boolean);
+  return [primary, ...extra.filter((value) => value !== primary)];
+}
+
+/**
+ * Escolhe o redirect_uri registrado que casa com o host da requisição atual.
+ * Sem correspondência, usa o oficial — o fluxo sempre volta para o app.br.
+ */
+export function resolveRedirectUri(requestUrl: string): string {
+  const registered = getRegisteredRedirectUris();
+  let host: string;
+  try {
+    host = new URL(requestUrl).host;
+  } catch {
+    return registered[0]!;
+  }
+
+  const match = registered.find((uri) => {
+    try {
+      return new URL(uri).host === host;
+    } catch {
+      return false;
+    }
+  });
+
+  return match ?? registered[0]!;
+}
+
+/** Origem pública correspondente a um redirect_uri registrado. */
+export function originOfRedirectUri(redirectUri: string): string {
+  try {
+    return new URL(redirectUri).origin;
+  } catch {
+    return getAriiaConfig().appBaseUrl;
+  }
+}
+
 export function getSessionSecret(): string {
   return requireEnv("ARIIA_SESSION_SECRET");
 }
