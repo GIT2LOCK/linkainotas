@@ -28,6 +28,11 @@ export const Route = createFileRoute("/api/auth/login")({
             redirectUri,
           });
 
+          // Diagnóstico: valor exato enviado ao Ariia (sem segredos).
+          console.log("[Ariia][authorize] redirect_uri=", JSON.stringify(redirectUri));
+          console.log("[Ariia][authorize] request_host=", new URL(request.url).host);
+          console.log("[Ariia][authorize] url=", authorizeUrl);
+
           return new Response(null, {
             status: 302,
             headers: { location: authorizeUrl, "cache-control": "no-store" },
