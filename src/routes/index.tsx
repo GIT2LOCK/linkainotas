@@ -48,7 +48,7 @@ function AuthScreen() {
 
       <section className="relative w-full max-w-sm rounded-3xl border border-glass-border bg-glass p-8 backdrop-blur-2xl [box-shadow:var(--shadow-glass)]">
         <div className="flex flex-col items-center gap-3">
-          <img src={linkaLogo.url} alt="Linka Engenharia" className="h-11 w-auto" />
+          <img src={linkaLogo.url} alt="Linka Engenharia" className="h-16 w-auto" />
           <h1 className="mt-2 text-2xl font-semibold tracking-tight text-glass-foreground drop-shadow">
             {isSignup ? "Criar conta" : "Bem-vindo"}
           </h1>
