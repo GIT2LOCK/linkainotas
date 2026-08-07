@@ -34,21 +34,26 @@ function AuthScreen() {
 
   return (
     <main className="relative flex min-h-screen items-center justify-center overflow-hidden px-4 py-12">
-      <img
-        src={lagoonBg}
-        alt="Vista aérea de uma lagoa tropical com ilhas verdes"
-        width={1920}
-        height={1280}
+      <video
+        src={constructionVideo.url}
+        autoPlay
+        muted
+        loop
+        playsInline
+        aria-hidden="true"
         className="absolute inset-0 h-full w-full object-cover"
       />
-      <div className="absolute inset-0 bg-gradient-to-b from-sky-900/20 via-transparent to-cyan-950/40" />
+      <div className="absolute inset-0 bg-neutral-950/55" />
+      <div className="absolute inset-0 bg-gradient-to-t from-neutral-950/85 via-transparent to-neutral-950/60" />
 
       <section className="relative w-full max-w-sm rounded-3xl border border-glass-border bg-glass p-8 backdrop-blur-2xl [box-shadow:var(--shadow-glass)]">
         <div className="flex flex-col items-center gap-3">
-          <div className="flex h-20 w-20 items-center justify-center rounded-full border border-glass-border bg-glass backdrop-blur-xl">
-            <User className="h-9 w-9 text-glass-foreground" strokeWidth={1.5} />
-          </div>
-          <h1 className="text-2xl font-semibold tracking-tight text-glass-foreground drop-shadow">
+          <img
+            src={linkaLogo.url}
+            alt="Linka Engenharia"
+            className="h-12 w-auto brightness-0 invert"
+          />
+          <h1 className="mt-2 text-2xl font-semibold tracking-tight text-glass-foreground drop-shadow">
             {isSignup ? "Criar conta" : "Bem-vindo"}
           </h1>
           <p className="text-center text-sm text-glass-muted">
