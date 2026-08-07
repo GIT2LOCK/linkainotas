@@ -9,7 +9,7 @@
  */
 import { supabaseAdmin } from "@/integrations/supabase/client.server";
 
-import type { AriiaIdentity } from "./ariia-jwks.server";
+import type { AriiaIdentity } from "./identity";
 
 export type LinkaiUser = {
   id: number;
@@ -134,6 +134,7 @@ export async function ensureShadowUser(identity: AriiaIdentity): Promise<LinkaiU
         nome,
         email: identity.email,
         avatar_url: identity.picture,
+        ...(identity.permissao ? { permissao: identity.permissao } : {}),
         atualizado_em: new Date().toISOString(),
       },
       { onConflict: "ariia_user_id" },
