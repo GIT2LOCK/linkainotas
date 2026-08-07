@@ -6,7 +6,7 @@
  */
 import { createFileRoute } from "@tanstack/react-router";
 
-import { getAriiaConfig, sanitizeNextPath } from "@/lib/auth/ariia-config.server";
+import { originOfRedirectUri, resolveRedirectUri, sanitizeNextPath } from "@/lib/auth/ariia-config.server";
 import { fetchAriiaUserInfo, readTokenExpiry, verifyAriiaIdToken } from "@/lib/auth/ariia-jwks.server";
 import { exchangeAuthorizationCode } from "@/lib/auth/ariia-oauth.server";
 import { consumeOAuthFlow, writeAriiaSession } from "@/lib/auth/ariia-session.server";
@@ -43,6 +43,7 @@ export const Route = createFileRoute("/auth/callback")({
           const tokens = await exchangeAuthorizationCode({
             code,
             codeVerifier: flow.codeVerifier,
+            redirectUri: flow.redirectUri ?? resolveRedirectUri(request.url),
           });
 
           const identity = tokens.id_token
@@ -68,9 +69,9 @@ export const Route = createFileRoute("/auth/callback")({
             issuedAt: Math.floor(Date.now() / 1000),
           });
 
-          // Mantém o redirecionamento no mesmo host público do app.
-          const { appBaseUrl } = getAriiaConfig();
-          return redirectTo(`${appBaseUrl}${sanitizeNextPath(flow.next)}`);
+          // Mantém o usuário no mesmo host público em que o login começou.
+          const origin = originOfRedirectUri(flow.redirectUri ?? resolveRedirectUri(request.url));
+          return redirectTo(`${origin}${sanitizeNextPath(flow.next)}`);
         } catch (error) {
           const reason = error instanceof Error && error.message === "INACTIVE_USER"
             ? "inactive_user"
