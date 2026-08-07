@@ -59,10 +59,23 @@
   --color-sidebar-accent-foreground: var(--sidebar-accent-foreground);
   --color-sidebar-border: var(--sidebar-border);
   --color-sidebar-ring: var(--sidebar-ring);
+  --color-glass: var(--glass);
+  --color-glass-border: var(--glass-border);
+  --color-glass-foreground: var(--glass-foreground);
+  --color-glass-muted: var(--glass-muted);
+  --color-brand: var(--brand);
+  --color-brand-foreground: var(--brand-foreground);
 }
 
 :root {
   --radius: 0.625rem;
+  --glass: oklch(1 0 0 / 18%);
+  --glass-border: oklch(1 0 0 / 35%);
+  --glass-foreground: oklch(1 0 0 / 95%);
+  --glass-muted: oklch(1 0 0 / 72%);
+  --brand: oklch(0.62 0.19 262);
+  --brand-foreground: oklch(0.99 0 0);
+  --shadow-glass: 0 24px 60px -20px oklch(0.2 0.06 250 / 45%);
   --background: oklch(1 0 0);
   --foreground: oklch(0.129 0.042 264.695);
   --card: oklch(1 0 0);
