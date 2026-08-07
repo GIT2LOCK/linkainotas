@@ -1,24 +1,164 @@
 import { createFileRoute } from "@tanstack/react-router";
+import { useState } from "react";
+import { Eye, EyeOff, Lock, Mail, User } from "lucide-react";
+import lagoonBg from "@/assets/lagoon-bg.jpg";
 
-// No head() here: the home route inherits title/description/og/twitter from
-// __root.tsx, and ships no og:image so serve-time hosting can inject the
-// project's social preview (explicit og:image or latest screenshot).
 export const Route = createFileRoute("/")({
-  component: Index,
+  head: () => ({
+    meta: [
+      { title: "Entrar ou criar conta | Lagoa" },
+      {
+        name: "description",
+        content:
+          "Acesse sua conta ou cadastre-se em uma tela de login glassmorphism com fundo de lagoa tropical.",
+      },
+      { property: "og:title", content: "Entrar ou criar conta | Lagoa" },
+      {
+        property: "og:description",
+        content: "Login e cadastro com efeito de vidro sobre uma lagoa tropical.",
+      },
+      { property: "og:type", content: "website" },
+      { name: "twitter:card", content: "summary_large_image" },
+    ],
+  }),
+  component: AuthScreen,
 });
 
-// IMPORTANT: Replace this placeholder. See ./README.md for routing conventions.
-function Index() {
+type Mode = "login" | "signup";
+
+function AuthScreen() {
+  const [mode, setMode] = useState<Mode>("login");
+  const [showPassword, setShowPassword] = useState(false);
+  const isSignup = mode === "signup";
+
   return (
-    <div
-      className="flex min-h-screen items-center justify-center"
-      style={{ backgroundColor: "#fcfbf8" }}
-    >
+    <main className="relative flex min-h-screen items-center justify-center overflow-hidden px-4 py-12">
       <img
-        data-lovable-blank-page-placeholder="REMOVE_THIS"
-        src="https://cdn.gpteng.co/blank-app-v1.svg"
-        alt="Your app will live here!"
+        src={lagoonBg}
+        alt="Vista aérea de uma lagoa tropical com ilhas verdes"
+        width={1920}
+        height={1280}
+        className="absolute inset-0 h-full w-full object-cover"
       />
-    </div>
+      <div className="absolute inset-0 bg-gradient-to-b from-sky-900/20 via-transparent to-cyan-950/40" />
+
+      <section className="relative w-full max-w-sm rounded-3xl border border-glass-border bg-glass p-8 backdrop-blur-2xl [box-shadow:var(--shadow-glass)]">
+        <div className="flex flex-col items-center gap-3">
+          <div className="flex h-20 w-20 items-center justify-center rounded-full border border-glass-border bg-glass backdrop-blur-xl">
+            <User className="h-9 w-9 text-glass-foreground" strokeWidth={1.5} />
+          </div>
+          <h1 className="text-2xl font-semibold tracking-tight text-glass-foreground drop-shadow">
+            {isSignup ? "Criar conta" : "Bem-vindo"}
+          </h1>
+          <p className="text-center text-sm text-glass-muted">
+            {isSignup
+              ? "Preencha seus dados para começar"
+              : "Entre para continuar sua jornada"}
+          </p>
+        </div>
+
+        <div className="mt-6 flex rounded-full border border-glass-border bg-glass p-1 backdrop-blur-xl">
+          {(["login", "signup"] as Mode[]).map((m) => (
+            <button
+              key={m}
+              type="button"
+              onClick={() => setMode(m)}
+              className={`flex-1 rounded-full px-4 py-2 text-sm font-medium transition-colors ${
+                mode === m
+                  ? "bg-brand text-brand-foreground shadow-md"
+                  : "text-glass-muted hover:text-glass-foreground"
+              }`}
+            >
+              {m === "login" ? "Entrar" : "Cadastrar"}
+            </button>
+          ))}
+        </div>
+
+        <form
+          className="mt-6 space-y-3"
+          onSubmit={(e) => {
+            e.preventDefault();
+          }}
+        >
+          {isSignup && (
+            <Field icon={<User className="h-4 w-4" />}>
+              <input
+                type="text"
+                name="name"
+                required
+                placeholder="Nome completo"
+                className="w-full bg-transparent text-sm text-glass-foreground placeholder:text-glass-muted focus:outline-none"
+              />
+            </Field>
+          )}
+
+          <Field icon={<Mail className="h-4 w-4" />}>
+            <input
+              type="email"
+              name="email"
+              required
+              placeholder="E-mail"
+              className="w-full bg-transparent text-sm text-glass-foreground placeholder:text-glass-muted focus:outline-none"
+            />
+          </Field>
+
+          <Field icon={<Lock className="h-4 w-4" />}>
+            <input
+              type={showPassword ? "text" : "password"}
+              name="password"
+              required
+              placeholder="Senha"
+              className="w-full bg-transparent text-sm text-glass-foreground placeholder:text-glass-muted focus:outline-none"
+            />
+            <button
+              type="button"
+              onClick={() => setShowPassword((v) => !v)}
+              aria-label={showPassword ? "Ocultar senha" : "Mostrar senha"}
+              className="text-glass-muted transition-colors hover:text-glass-foreground"
+            >
+              {showPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+            </button>
+          </Field>
+
+          <button
+            type="submit"
+            className="mt-2 w-full rounded-xl bg-brand py-3 text-sm font-semibold text-brand-foreground shadow-lg transition-transform hover:brightness-110 active:scale-[0.99]"
+          >
+            {isSignup ? "Criar conta" : "Entrar"}
+          </button>
+        </form>
+
+        <p className="mt-5 text-center text-xs text-glass-muted">
+          {isSignup ? (
+            <>
+              Já tem conta?{" "}
+              <button
+                type="button"
+                onClick={() => setMode("login")}
+                className="font-medium text-glass-foreground underline-offset-4 hover:underline"
+              >
+                Entrar
+              </button>
+            </>
+          ) : (
+            <button
+              type="button"
+              className="underline-offset-4 transition-colors hover:text-glass-foreground hover:underline"
+            >
+              Esqueceu sua senha?
+            </button>
+          )}
+        </p>
+      </section>
+    </main>
+  );
+}
+
+function Field({ icon, children }: { icon: React.ReactNode; children: React.ReactNode }) {
+  return (
+    <label className="flex items-center gap-3 rounded-xl border border-glass-border bg-glass px-4 py-3 backdrop-blur-xl transition-colors focus-within:border-glass-foreground/60">
+      <span className="text-glass-muted">{icon}</span>
+      {children}
+    </label>
   );
 }
