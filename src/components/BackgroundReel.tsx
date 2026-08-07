@@ -2,10 +2,10 @@ import { useEffect, useState } from "react";
 import take1 from "@/assets/take1.mp4.asset.json";
 import take2 from "@/assets/take2.mp4.asset.json";
 import take3 from "@/assets/take3.mp4.asset.json";
-import take4 from "@/assets/take4.mp4.asset.json";
 
-const takes = [take1.url, take2.url, take3.url, take4.url];
-const TAKE_MS = 5200;
+const takes = [take1.url, take2.url, take3.url];
+const TAKE_MS = 7000;
+
 
 export function BackgroundReel() {
   const [active, setActive] = useState(0);
