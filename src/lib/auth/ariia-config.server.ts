@@ -35,8 +35,11 @@ export function getSessionSecret(): string {
   return requireEnv("ARIIA_SESSION_SECRET");
 }
 
-/** Escopos OIDC solicitados ao Ariia — apenas identidade. */
-export const ARIIA_SCOPES = "openid email profile";
+/**
+ * Escopos OIDC solicitados ao Ariia — identidade + `offline_access`, necessário
+ * para receber refresh_token e revalidar a sessão sem novo consentimento.
+ */
+export const ARIIA_SCOPES = "openid email profile offline_access";
 
 /**
  * Só aceita destinos internos. Impede open redirect via `?next=`.
