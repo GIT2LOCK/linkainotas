@@ -1,7 +1,7 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { useState } from "react";
 import { Eye, EyeOff, Lock, Mail, User } from "lucide-react";
-import linkaLogo from "@/assets/linka-logo.png.asset.json";
+import linkaLogo from "@/assets/linka-logo-white.png.asset.json";
 import constructionVideo from "@/assets/construction-bg.mp4.asset.json";
 
 export const Route = createFileRoute("/")({
@@ -48,11 +48,7 @@ function AuthScreen() {
 
       <section className="relative w-full max-w-sm rounded-3xl border border-glass-border bg-glass p-8 backdrop-blur-2xl [box-shadow:var(--shadow-glass)]">
         <div className="flex flex-col items-center gap-3">
-          <img
-            src={linkaLogo.url}
-            alt="Linka Engenharia"
-            className="h-12 w-auto brightness-0 invert"
-          />
+          <img src={linkaLogo.url} alt="Linka Engenharia" className="h-11 w-auto" />
           <h1 className="mt-2 text-2xl font-semibold tracking-tight text-glass-foreground drop-shadow">
             {isSignup ? "Criar conta" : "Bem-vindo"}
           </h1>
