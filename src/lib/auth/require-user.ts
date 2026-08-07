@@ -8,8 +8,8 @@ import { createMiddleware } from "@tanstack/react-start";
 
 export const requireLinkaiUser = createMiddleware({ type: "function" }).server(
   async ({ next }) => {
-    const { readAriiaSession } = await import("./ariia-session.server");
-    const ariia = await readAriiaSession();
+    const { getValidAriiaSession } = await import("./ariia-revalidate.server");
+    const ariia = await getValidAriiaSession();
     if (!ariia) throw new Response("Unauthorized", { status: 401 });
 
     const { getSupabaseServerClient } = await import(
