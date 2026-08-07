@@ -1,20 +1,23 @@
 /**
- * Sessão A — identidade do Ariia.
+ * Sessão do Linkai espelhando a sessão do Ariia.
  *
- * Cookie httpOnly cifrado, exclusivo do servidor. É a fonte de verdade:
- * a sessão Supabase do Linkai só sobrevive enquanto esta for válida.
+ * Cookie httpOnly cifrado, exclusivo do servidor. O Ariia é a fonte de verdade:
+ * a sessão Supabase local só sobrevive enquanto o token do Ariia for válido.
  */
 import { useSession } from "@tanstack/react-start/server";
 
 import { getSessionSecret } from "./ariia-config.server";
 
 export type AriiaSessionData = {
-  ariiaSub: string;
+  ariiaUserId: string;
   email: string;
   name: string | null;
   picture: string | null;
-  refreshToken: string | null;
-  accessTokenExpiresAt: number | null;
+  permissao: string | null;
+  /** Token da sessão customizada do Ariia. */
+  ariiaToken: string;
+  /** Epoch em segundos. */
+  tokenExpiresAt: number | null;
   authUserId: string;
   issuedAt: number;
 };
@@ -40,7 +43,7 @@ function sessionConfig() {
 export async function readAriiaSession(): Promise<AriiaSessionData | null> {
   const session = await useSession<AriiaSessionData>(sessionConfig());
   const data = session.data;
-  if (!data || !data.ariiaSub || !data.authUserId) return null;
+  if (!data || !data.ariiaUserId || !data.authUserId) return null;
   return data as AriiaSessionData;
 }
 
@@ -54,35 +57,58 @@ export async function clearAriiaSession(): Promise<void> {
   await session.clear();
 }
 
-/** Estado efêmero do fluxo OAuth: state, PKCE verifier, nonce e destino. */
-export type OAuthFlowData = {
-  state: string;
-  codeVerifier: string;
-  nonce: string;
-  next: string;
-  /** redirect_uri exato usado no /authorize — o token endpoint exige o mesmo. */
-  redirectUri: string;
+/**
+ * Sessão válida = cookie presente e token do Ariia não expirado. Sem token
+ * válido no Ariia, derrubamos também a sessão Supabase local.
+ */
+export async function getValidAriiaSession(): Promise<AriiaSessionData | null> {
+  const session = await readAriiaSession();
+  if (!session) return null;
+
+  const now = Math.floor(Date.now() / 1000);
+  if (session.tokenExpiresAt && session.tokenExpiresAt <= now) {
+    const { destroySupabaseSession } = await import("./session-bridge.server");
+    await destroySupabaseSession();
+    await clearAriiaSession();
+    return null;
+  }
+
+  return session;
+}
+
+/**
+ * Estado efêmero do 2FA. O challengeToken/setupToken nunca vai para o browser:
+ * fica neste cookie cifrado de curta duração.
+ */
+export type PendingTwoFactor = {
+  mode: "login" | "signup";
+  challengeToken?: string;
+  setupToken?: string;
+  email: string;
 };
 
-function flowConfig() {
+function pendingConfig() {
   return {
     password: getSessionSecret(),
-    name: "linkai_oauth_flow",
-    maxAge: 60 * 10,
+    name: "linkai_2fa",
+    maxAge: 60 * 30,
     cookie: cookieOptions,
   };
 }
 
-export async function writeOAuthFlow(data: OAuthFlowData): Promise<void> {
-  const session = await useSession<OAuthFlowData>(flowConfig());
+export async function writePendingTwoFactor(data: PendingTwoFactor): Promise<void> {
+  const session = await useSession<PendingTwoFactor>(pendingConfig());
   await session.update(data);
 }
 
-/** Lê e invalida em seguida — o state é de uso único. */
-export async function consumeOAuthFlow(): Promise<OAuthFlowData | null> {
-  const session = await useSession<OAuthFlowData>(flowConfig());
+export async function readPendingTwoFactor(): Promise<PendingTwoFactor | null> {
+  const session = await useSession<PendingTwoFactor>(pendingConfig());
   const data = session.data;
+  if (!data || !data.mode) return null;
+  return data as PendingTwoFactor;
+}
+
+export async function clearPendingTwoFactor(): Promise<void> {
+  const session = await useSession<PendingTwoFactor>(pendingConfig());
   await session.clear();
-  if (!data || !data.state || !data.codeVerifier) return null;
-  return data as OAuthFlowData;
 }
