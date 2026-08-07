@@ -17,7 +17,7 @@ export type SessionUser = {
 
 export const getCurrentSession = createServerFn({ method: "GET" }).handler(
   async (): Promise<{ user: SessionUser | null }> => {
-    const { getValidAriiaSession } = await import("./ariia-revalidate.server");
+    const { getValidAriiaSession } = await import("./ariia-session.server");
     const ariia = await getValidAriiaSession();
     if (!ariia) return { user: null };
 
@@ -51,7 +51,7 @@ export const getCurrentSession = createServerFn({ method: "GET" }).handler(
  */
 export const getSupabaseAccessToken = createServerFn({ method: "GET" }).handler(
   async (): Promise<{ accessToken: string | null }> => {
-    const { getValidAriiaSession } = await import("./ariia-revalidate.server");
+    const { getValidAriiaSession } = await import("./ariia-session.server");
     if (!(await getValidAriiaSession())) return { accessToken: null };
 
     const { getSupabaseServerClient } = await import(
