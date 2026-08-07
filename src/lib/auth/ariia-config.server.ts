@@ -13,7 +13,9 @@ export type AriiaConfig = {
 };
 
 function requireEnv(name: string): string {
-  const value = process.env[name];
+  const raw = process.env[name];
+  // Remove espaços e aspas acidentais vindas do painel de secrets.
+  const value = raw?.trim().replace(/^["']|["']$/g, "");
   if (!value) {
     throw new Error(
       `Variável de ambiente ausente: ${name}. Configure-a antes de usar o login do Ariia.`,
@@ -22,11 +24,27 @@ function requireEnv(name: string): string {
   return value;
 }
 
+/**
+ * Normaliza um redirect_uri para o formato exato registrado no Ariia:
+ * sem espaços, sem barra final, sem query/hash.
+ */
+function normalizeRedirectUri(value: string): string {
+  const cleaned = value.trim().replace(/\/+$/, "");
+  try {
+    const url = new URL(cleaned);
+    url.search = "";
+    url.hash = "";
+    return `${url.origin}${url.pathname.replace(/\/+$/, "")}`;
+  } catch {
+    return cleaned;
+  }
+}
+
 export function getAriiaConfig(): AriiaConfig {
   return {
     issuerUrl: requireEnv("ARIIA_ISSUER_URL").replace(/\/+$/, ""),
     clientId: requireEnv("ARIIA_OAUTH_CLIENT_ID"),
-    redirectUri: requireEnv("ARIIA_REDIRECT_URI"),
+    redirectUri: normalizeRedirectUri(requireEnv("ARIIA_REDIRECT_URI")),
     appBaseUrl: requireEnv("APP_BASE_URL").replace(/\/+$/, ""),
   };
 }
@@ -34,41 +52,21 @@ export function getAriiaConfig(): AriiaConfig {
 /**
  * Redirect URIs registrados no client do Ariia.
  *
- * `ARIIA_REDIRECT_URI` é o oficial (domínio principal: linkai.2lock.app.br).
- * `ARIIA_REDIRECT_URIS` (opcional, separado por vírgula) permite manter
- * domínios alternativos registrados sem trocar o principal.
+ * O client do Ariia registra APENAS `https://linkai.2lock.app.br/auth/callback`.
+ * Portanto existe um único valor válido: `ARIIA_REDIRECT_URI`. Nenhuma outra
+ * variável pode sobrescrevê-lo e nenhum host de requisição altera o valor.
  */
 export function getRegisteredRedirectUris(): string[] {
-  const primary = requireEnv("ARIIA_REDIRECT_URI");
-  const extra = (process.env["ARIIA_REDIRECT_URIS"] ?? "")
-    .split(",")
-    .map((value) => value.trim())
-    .filter(Boolean);
-  return [primary, ...extra.filter((value) => value !== primary)];
+  return [getAriiaConfig().redirectUri];
 }
 
 /**
- * Escolhe o redirect_uri registrado que casa com o host da requisição atual.
- * Sem correspondência, usa o oficial — o fluxo sempre volta para o app.br.
+ * Sempre retorna o único redirect_uri registrado — independentemente do host
+ * da requisição (preview, localhost ou domínio oficial). O Ariia exige match
+ * exato, então este valor é o mesmo no authorize e na troca do code.
  */
-export function resolveRedirectUri(requestUrl: string): string {
-  const registered = getRegisteredRedirectUris();
-  let host: string;
-  try {
-    host = new URL(requestUrl).host;
-  } catch {
-    return registered[0]!;
-  }
-
-  const match = registered.find((uri) => {
-    try {
-      return new URL(uri).host === host;
-    } catch {
-      return false;
-    }
-  });
-
-  return match ?? registered[0]!;
+export function resolveRedirectUri(_requestUrl?: string): string {
+  return getAriiaConfig().redirectUri;
 }
 
 /** Origem pública correspondente a um redirect_uri registrado. */
