@@ -14,6 +14,36 @@ export type Database = {
   }
   public: {
     Tables: {
+      ariia_identities: {
+        Row: {
+          ariia_user_id: string
+          created_at: string
+          expires_at: string | null
+          last_login_at: string
+          refresh_token_encrypted: string | null
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          ariia_user_id: string
+          created_at?: string
+          expires_at?: string | null
+          last_login_at?: string
+          refresh_token_encrypted?: string | null
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          ariia_user_id?: string
+          created_at?: string
+          expires_at?: string | null
+          last_login_at?: string
+          refresh_token_encrypted?: string | null
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
       profiles: {
         Row: {
           ariia_user_id: string
