@@ -15,7 +15,10 @@ import { createPkcePair, randomUrlSafeString } from "./crypto.server";
 import { consumeFlowState, saveFlowState } from "./oauth-state.server";
 import { mirrorAriiaIdentity } from "./sync.server";
 
-export async function beginLogin(input: { origin: string; redirectTo?: string }) {
+export async function beginLogin(input: {
+  origin: string;
+  redirectTo?: string | undefined;
+}) {
   let origin: string;
   try {
     origin = new URL(input.origin).origin;
