@@ -77,7 +77,7 @@ function AuthScreen() {
         </div>
 
         <form
-          className="mt-6 space-y-3"
+          className="mt-6"
           onSubmit={(e) => {
             e.preventDefault();
           }}
@@ -103,15 +103,17 @@ function AuthScreen() {
             </div>
           </div>
 
-          <Field icon={<Mail className="h-4 w-4" />}>
-            <input
-              type="email"
-              name="email"
-              required
-              placeholder="E-mail"
-              className="w-full bg-transparent text-sm text-glass-foreground placeholder:text-glass-muted focus:outline-none"
-            />
-          </Field>
+          <div className="pb-3">
+            <Field icon={<Mail className="h-4 w-4" />}>
+              <input
+                type="email"
+                name="email"
+                required
+                placeholder="E-mail"
+                className="w-full bg-transparent text-sm text-glass-foreground placeholder:text-glass-muted focus:outline-none"
+              />
+            </Field>
+          </div>
 
           <Field icon={<Lock className="h-4 w-4" />}>
             <input
