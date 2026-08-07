@@ -7,7 +7,7 @@ import { createServerFn } from "@tanstack/react-start";
 import { requireSupabaseAuth } from "@/integrations/supabase/auth-middleware";
 
 export const startAriiaLogin = createServerFn({ method: "POST" })
-  .inputValidator((input: { origin: string; redirectTo?: string }) => input)
+  .inputValidator((input: { origin: string; redirectTo?: string | undefined }) => input)
   .handler(async ({ data }) => {
     const { beginLogin } = await import("./login.server");
     return beginLogin(data);
