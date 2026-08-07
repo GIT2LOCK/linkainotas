@@ -102,6 +102,7 @@ export async function buildAuthorizeUrl(input: {
   state: string;
   nonce: string;
   codeChallenge: string;
+  redirectUri?: string;
 }): Promise<string> {
   const config = getAriiaConfig();
   const discovery = await getDiscovery(config);
@@ -109,7 +110,7 @@ export async function buildAuthorizeUrl(input: {
   const url = new URL(discovery.authorization_endpoint);
   url.searchParams.set("response_type", "code");
   url.searchParams.set("client_id", config.clientId);
-  url.searchParams.set("redirect_uri", config.redirectUri);
+  url.searchParams.set("redirect_uri", input.redirectUri ?? config.redirectUri);
   url.searchParams.set("scope", ARIIA_SCOPES);
   url.searchParams.set("state", input.state);
   url.searchParams.set("nonce", input.nonce);
@@ -145,13 +146,14 @@ async function postToken(body: URLSearchParams): Promise<AriiaTokenSet> {
 export async function exchangeAuthorizationCode(input: {
   code: string;
   codeVerifier: string;
+  redirectUri?: string;
 }): Promise<AriiaTokenSet> {
   const config = getAriiaConfig();
   return postToken(
     new URLSearchParams({
       grant_type: "authorization_code",
       code: input.code,
-      redirect_uri: config.redirectUri,
+      redirect_uri: input.redirectUri ?? config.redirectUri,
       client_id: config.clientId,
       code_verifier: input.codeVerifier,
     }),
