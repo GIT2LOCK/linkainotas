@@ -1,21 +1,22 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { useState } from "react";
 import { Eye, EyeOff, Lock, Mail, User } from "lucide-react";
-import lagoonBg from "@/assets/lagoon-bg.jpg";
+import linkaLogo from "@/assets/linka-logo.png.asset.json";
+import constructionVideo from "@/assets/construction-bg.mp4.asset.json";
 
 export const Route = createFileRoute("/")({
   head: () => ({
     meta: [
-      { title: "Entrar ou criar conta | Lagoa" },
+      { title: "Entrar ou criar conta | Linka Engenharia" },
       {
         name: "description",
         content:
-          "Acesse sua conta ou cadastre-se em uma tela de login glassmorphism com fundo de lagoa tropical.",
+          "Acesse a plataforma da Linka Engenharia ou crie sua conta para acompanhar seus projetos e obras.",
       },
-      { property: "og:title", content: "Entrar ou criar conta | Lagoa" },
+      { property: "og:title", content: "Entrar ou criar conta | Linka Engenharia" },
       {
         property: "og:description",
-        content: "Login e cadastro com efeito de vidro sobre uma lagoa tropical.",
+        content: "Login e cadastro da plataforma Linka Engenharia.",
       },
       { property: "og:type", content: "website" },
       { name: "twitter:card", content: "summary_large_image" },
