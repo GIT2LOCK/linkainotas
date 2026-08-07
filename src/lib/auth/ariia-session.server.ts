@@ -60,6 +60,8 @@ export type OAuthFlowData = {
   codeVerifier: string;
   nonce: string;
   next: string;
+  /** redirect_uri exato usado no /authorize — o token endpoint exige o mesmo. */
+  redirectUri: string;
 };
 
 function flowConfig() {
