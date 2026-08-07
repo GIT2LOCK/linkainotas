@@ -4,7 +4,7 @@
  */
 import { createFileRoute } from "@tanstack/react-router";
 
-import { sanitizeNextPath } from "@/lib/auth/ariia-config.server";
+import { resolveRedirectUri, sanitizeNextPath } from "@/lib/auth/ariia-config.server";
 import { buildAuthorizeUrl, createPkcePair, randomUrlSafeToken } from "@/lib/auth/ariia-oauth.server";
 import { writeOAuthFlow } from "@/lib/auth/ariia-session.server";
 
@@ -14,16 +14,18 @@ export const Route = createFileRoute("/api/auth/login")({
       GET: async ({ request }) => {
         try {
           const next = sanitizeNextPath(new URL(request.url).searchParams.get("next"));
+          const redirectUri = resolveRedirectUri(request.url);
           const state = randomUrlSafeToken(32);
           const nonce = randomUrlSafeToken(16);
           const { verifier, challenge } = await createPkcePair();
 
-          await writeOAuthFlow({ state, codeVerifier: verifier, nonce, next });
+          await writeOAuthFlow({ state, codeVerifier: verifier, nonce, next, redirectUri });
 
           const authorizeUrl = await buildAuthorizeUrl({
             state,
             nonce,
             codeChallenge: challenge,
+            redirectUri,
           });
 
           return new Response(null, {
