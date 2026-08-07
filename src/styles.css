@@ -155,3 +155,12 @@
     color: var(--color-foreground);
   }
 }
+
+@keyframes reel-zoom {
+  from {
+    transform: scale(1.04) translate3d(0, 0, 0);
+  }
+  to {
+    transform: scale(1.16) translate3d(-1.5%, -1%, 0);
+  }
+}
