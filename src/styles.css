@@ -69,13 +69,13 @@
 
 :root {
   --radius: 0.625rem;
-  --glass: oklch(1 0 0 / 18%);
-  --glass-border: oklch(1 0 0 / 35%);
-  --glass-foreground: oklch(1 0 0 / 95%);
-  --glass-muted: oklch(1 0 0 / 72%);
-  --brand: oklch(0.62 0.19 262);
+  --glass: oklch(1 0 0 / 10%);
+  --glass-border: oklch(1 0 0 / 22%);
+  --glass-foreground: oklch(1 0 0 / 96%);
+  --glass-muted: oklch(1 0 0 / 65%);
+  --brand: oklch(0.63 0.23 8);
   --brand-foreground: oklch(0.99 0 0);
-  --shadow-glass: 0 24px 60px -20px oklch(0.2 0.06 250 / 45%);
+  --shadow-glass: 0 30px 80px -24px oklch(0.15 0 0 / 70%);
   --background: oklch(1 0 0);
   --foreground: oklch(0.129 0.042 264.695);
   --card: oklch(1 0 0);
