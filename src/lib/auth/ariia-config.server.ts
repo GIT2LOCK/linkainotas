@@ -25,11 +25,18 @@ function requireEnv(name: string): string {
 }
 
 export function getAriiaConfig(): AriiaConfig {
-  const issuer = requireEnv("ARIIA_ISSUER_URL").replace(/\/+$/, "");
+  const raw = requireEnv("ARIIA_ISSUER_URL").replace(/\/+$/, "");
+  // O secret pode apontar para o issuer OIDC (…/auth/v1); as functions ficam na origem.
+  let origin = raw;
+  try {
+    origin = new URL(raw).origin;
+  } catch {
+    origin = raw.replace(/\/(auth|functions)\/v1$/, "");
+  }
   const appBaseUrl = (process.env['APP_BASE_URL'] ?? "").trim().replace(/\/+$/, "");
 
   return {
-    functionsBaseUrl: issuer.endsWith("/functions/v1") ? issuer : `${issuer}/functions/v1`,
+    functionsBaseUrl: `${origin}/functions/v1`,
     anonKey: requireEnv("ARIIA_ANON_KEY"),
     appBaseUrl,
   };
