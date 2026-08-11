@@ -38,6 +38,63 @@ export type Database = {
         }
         Relationships: []
       }
+      indicadores_construcao: {
+        Row: {
+          codigo: string
+          data_atualizacao: string
+          data_referencia: string
+          fonte: string | null
+          id: string
+          nome: string
+          unidade: string | null
+          valor: number
+        }
+        Insert: {
+          codigo: string
+          data_atualizacao?: string
+          data_referencia: string
+          fonte?: string | null
+          id?: string
+          nome: string
+          unidade?: string | null
+          valor: number
+        }
+        Update: {
+          codigo?: string
+          data_atualizacao?: string
+          data_referencia?: string
+          fonte?: string | null
+          id?: string
+          nome?: string
+          unidade?: string | null
+          valor?: number
+        }
+        Relationships: []
+      }
+      indicadores_historico: {
+        Row: {
+          codigo: string
+          created_at: string
+          data_referencia: string
+          id: string
+          valor: number
+        }
+        Insert: {
+          codigo: string
+          created_at?: string
+          data_referencia: string
+          id?: string
+          valor: number
+        }
+        Update: {
+          codigo?: string
+          created_at?: string
+          data_referencia?: string
+          id?: string
+          valor?: number
+        }
+        Relationships: []
+      }
       notas_processadas: {
         Row: {
           arquivo_pdf: string
@@ -102,6 +159,39 @@ export type Database = {
             referencedColumns: ["id"]
           },
         ]
+      }
+      noticias_construcao: {
+        Row: {
+          data_coleta: string
+          data_publicacao: string | null
+          fonte: string
+          id: string
+          relevante: boolean
+          resumo: string | null
+          titulo: string
+          url: string
+        }
+        Insert: {
+          data_coleta?: string
+          data_publicacao?: string | null
+          fonte: string
+          id?: string
+          relevante?: boolean
+          resumo?: string | null
+          titulo: string
+          url: string
+        }
+        Update: {
+          data_coleta?: string
+          data_publicacao?: string | null
+          fonte?: string
+          id?: string
+          relevante?: boolean
+          resumo?: string | null
+          titulo?: string
+          url?: string
+        }
+        Relationships: []
       }
       pedidos_pendentes: {
         Row: {
