@@ -676,6 +676,10 @@ function selectionDialogError(error: unknown) {
 function uploadErrorMessage(error: unknown) {
   const message = error instanceof Error ? error.message : String(error);
 
+  if (message.includes("conector de processamento")) {
+    return message;
+  }
+
   if (message.includes("404")) {
     return "A API local está rodando, mas está desatualizada. Rode stop-linkai-web.ps1 e depois run-linkai-web.ps1.";
   }

@@ -12,6 +12,9 @@ declare global {
   }
 }
 
+export const PUBLISHED_CONNECTOR_MESSAGE =
+  "Esta automacao depende do conector de processamento da Lumina, que ainda nao esta publicado neste ambiente.";
+
 export async function callBackend<T>(action: string, payload: object = {}): Promise<T> {
   const fallback = fallbackForAction<T>(action, payload);
 
@@ -46,11 +49,15 @@ export function isTauriRuntime(): boolean {
   return false;
 }
 
+export function hasProcessingConnector(): boolean {
+  return Boolean(localApiBaseUrl());
+}
+
 export async function uploadLocalDocuments(files: File[]): Promise<UploadedDocumentsResponse> {
   const apiBaseUrl = localApiBaseUrl();
 
   if (!apiBaseUrl) {
-    throw new Error("Uploads locais estao disponiveis apenas no ambiente conectado a API local.");
+    throw new Error(PUBLISHED_CONNECTOR_MESSAGE);
   }
 
   const formData = new FormData();
@@ -77,7 +84,7 @@ async function callLocalApi<T>(action: string, payload: object): Promise<Command
   const apiBaseUrl = localApiBaseUrl();
 
   if (!apiBaseUrl) {
-    throw new Error("API local indisponivel neste ambiente.");
+    throw new Error(PUBLISHED_CONNECTOR_MESSAGE);
   }
 
   const response = await fetch(`${apiBaseUrl}/invoke`, {
@@ -148,6 +155,40 @@ function fallbackForAction<T>(action: string, payload: object): T | undefined {
     return {
       indicadores: FALLBACK_INDICATORS,
       atualizadoEm: new Date().toISOString(),
+    } as T;
+  }
+
+  if (action === "lumina.start") {
+    return {
+      status: "requires_connector",
+      message: PUBLISHED_CONNECTOR_MESSAGE,
+    } as T;
+  }
+
+  if (action === "documents.last") {
+    return null as T;
+  }
+
+  if (action === "history.list" || action === "spreadsheets.list" || action === "files.list") {
+    return [] as T;
+  }
+
+  if (action === "logs.latest") {
+    return {
+      path: "Ambiente publicado",
+      lines: [
+        "LinkAI Web publicado com sucesso.",
+        "Os logs da automacao de processamento serao exibidos quando o conector da Lumina estiver configurado neste ambiente.",
+      ],
+    } as T;
+  }
+
+  if (action === "cloud.test") {
+    return {
+      status: "Conector pendente",
+      space: "Nuvem",
+      folder: "/",
+      items: 0,
     } as T;
   }
 

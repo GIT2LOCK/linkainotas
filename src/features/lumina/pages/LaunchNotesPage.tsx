@@ -7,6 +7,7 @@ export function LaunchNotesPage() {
   const action = useAsyncAction(() =>
     callBackend<{ status: string; message: string }>("lumina.start"),
   );
+  const needsConnector = action.data?.status === "requires_connector";
 
   return (
     <div className="page-stack">
@@ -27,7 +28,11 @@ export function LaunchNotesPage() {
         >
           {action.loading ? "Iniciando" : "Iniciar lançamento"}
         </button>
-        {action.data ? <div className="alert success">{action.data.message}</div> : null}
+        {action.data ? (
+          <div className={`alert ${needsConnector ? "warning" : "success"}`}>
+            {action.data.message}
+          </div>
+        ) : null}
         {action.error ? <div className="alert danger">{action.error}</div> : null}
       </div>
     </div>

@@ -716,6 +716,11 @@
   background: rgba(67, 184, 131, 0.12);
 }
 
+.alert.warning {
+  border-color: rgba(215, 168, 68, 0.34);
+  background: rgba(215, 168, 68, 0.12);
+}
+
 .alert.danger {
   border-color: rgba(239, 90, 110, 0.34);
   background: rgba(239, 90, 110, 0.12);
