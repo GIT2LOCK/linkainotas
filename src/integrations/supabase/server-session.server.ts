@@ -13,7 +13,8 @@ import type { Database } from "./types";
 const COOKIE_DEFAULTS: CookieOptions = {
   httpOnly: true,
   secure: true,
-  sameSite: "lax",
+  // "none" é necessário para a sessão sobreviver ao preview em iframe (contexto cross-site).
+  sameSite: "none",
   path: "/",
 };
 

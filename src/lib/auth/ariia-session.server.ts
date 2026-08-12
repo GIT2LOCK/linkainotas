@@ -27,7 +27,8 @@ const MAX_AGE_SECONDS = 60 * 60 * 24 * 30;
 const cookieOptions = {
   httpOnly: true,
   secure: true,
-  sameSite: "lax" as const,
+  // "none" mantém a sessão válida também dentro do preview em iframe (cross-site).
+  sameSite: "none" as const,
   path: "/",
 };
 
