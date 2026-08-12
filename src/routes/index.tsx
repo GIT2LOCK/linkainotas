@@ -68,7 +68,14 @@ function AuthScreen() {
     if (step.step === "authenticated") {
       toast.success("Login efetuado com sucesso");
       await router.invalidate();
-      router.navigate({ to: "/dashboard" });
+      try {
+        await router.navigate({ to: "/dashboard", replace: true });
+      } catch {
+        // ignore: fallback abaixo garante o redirecionamento
+      }
+      if (typeof window !== "undefined" && window.location.pathname !== "/dashboard") {
+        window.location.assign("/dashboard");
+      }
       return;
     }
     setCode("");
