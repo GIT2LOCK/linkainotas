@@ -30,6 +30,8 @@ const cookieOptions = {
   // "none" mantém a sessão válida também dentro do preview em iframe (cross-site).
   sameSite: "none" as const,
   path: "/",
+  // CHIPS: sem isto o navegador descarta cookies cross-site dentro do preview em iframe.
+  partitioned: true,
 };
 
 function sessionConfig() {
