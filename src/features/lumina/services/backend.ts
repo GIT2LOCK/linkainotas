@@ -13,7 +13,7 @@ declare global {
 }
 
 export const PUBLISHED_CONNECTOR_MESSAGE =
-  "Esta automacao depende do conector de processamento da Lumina, que ainda nao esta publicado neste ambiente.";
+  "Funcionalidade em implantacao. Em breve ela estara disponivel diretamente no LinkAI Web.";
 
 export async function callBackend<T>(action: string, payload: object = {}): Promise<T> {
   const fallback = fallbackForAction<T>(action, payload);
