@@ -13,7 +13,6 @@ ROOT = Path(__file__).resolve().parents[2]
 if str(ROOT) not in sys.path:
     sys.path.insert(0, str(ROOT))
 
-from backend.automation import LuminaAutomationService
 from backend.core.log_stream import LogStream
 from backend.core.result import CommandResult, failure, success
 from backend.models.ui import ProcessingOptions
@@ -70,6 +69,8 @@ class DesktopBridge:
                 return success(DocumentProcessingService().list_history())
 
             if action == "lumina.start":
+                from backend.automation import LuminaAutomationService
+
                 return success(LuminaAutomationService().iniciar_lancamento())
 
             if action == "spreadsheets.list":

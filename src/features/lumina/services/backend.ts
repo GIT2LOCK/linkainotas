@@ -5,7 +5,7 @@ import type {
   PainelIndicadores,
   UploadedDocumentsResponse,
 } from "../types/backend";
-import { invokeLuminaBridge } from "./bridge.functions";
+import { invokePublishedBackend, uploadPublishedDocuments } from "./bridge.functions";
 
 declare global {
   interface Window {
@@ -14,7 +14,7 @@ declare global {
 }
 
 export const PUBLISHED_CONNECTOR_MESSAGE =
-  "Funcionalidade em implantacao. Em breve ela estara disponivel diretamente no LinkAI Web.";
+  "Servico publicado ainda nao configurado para esta funcionalidade.";
 
 export async function callBackend<T>(action: string, payload: object = {}): Promise<T> {
   const fallback = fallbackForAction<T>(action, payload);
@@ -59,7 +59,7 @@ export async function uploadLocalDocuments(files: File[]): Promise<UploadedDocum
   const apiBaseUrl = localApiBaseUrl();
 
   if (!apiBaseUrl) {
-    throw new Error(PUBLISHED_CONNECTOR_MESSAGE);
+    return uploadDocumentsThroughPublishedService(files);
   }
 
   const formData = new FormData();
@@ -107,7 +107,7 @@ async function callPublishedBridge<T>(
   payload: object,
   fallback: T | undefined,
 ): Promise<T> {
-  const result = (await invokeLuminaBridge({
+  const result = (await invokePublishedBackend({
     data: {
       action,
       payload,
@@ -123,6 +123,41 @@ async function callPublishedBridge<T>(
   }
 
   throw new Error(result.error ?? PUBLISHED_CONNECTOR_MESSAGE);
+}
+
+async function uploadDocumentsThroughPublishedService(
+  files: File[],
+): Promise<UploadedDocumentsResponse> {
+  const result = await uploadPublishedDocuments({
+    data: {
+      files: await Promise.all(
+        files.map(async (file) => ({
+          contentBase64: arrayBufferToBase64(await file.arrayBuffer()),
+          name: file.name,
+          type: file.type || null,
+        })),
+      ),
+    },
+  });
+
+  if (!result.ok || !result.data) {
+    throw new Error(result.error ?? "Nao foi possivel enviar documentos para processamento.");
+  }
+
+  return result.data;
+}
+
+function arrayBufferToBase64(buffer: ArrayBuffer): string {
+  const bytes = new Uint8Array(buffer);
+  const chunkSize = 0x8000;
+  let binary = "";
+
+  for (let index = 0; index < bytes.length; index += chunkSize) {
+    const chunk = bytes.subarray(index, index + chunkSize);
+    binary += String.fromCharCode(...chunk);
+  }
+
+  return btoa(binary);
 }
 
 function localApiBaseUrl(): string | null {
@@ -194,7 +229,7 @@ function fallbackForAction<T>(action: string, payload: object): T | undefined {
       path: "Ambiente publicado",
       lines: [
         "LinkAI Web publicado com sucesso.",
-        "Os logs da automacao de processamento serao exibidos quando o conector da Lumina estiver configurado neste ambiente.",
+        "Os logs de processamento serao exibidos quando o servico de documentos estiver configurado neste ambiente.",
       ],
     } as T;
   }

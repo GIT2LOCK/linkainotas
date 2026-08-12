@@ -676,7 +676,11 @@ function selectionDialogError(error: unknown) {
 function uploadErrorMessage(error: unknown) {
   const message = error instanceof Error ? error.message : String(error);
 
-  if (message.includes("conector de processamento")) {
+  if (
+    message.includes("conector de processamento") ||
+    message.includes("processamento de documentos") ||
+    message.includes("LINKAI_PROCESSING_URL")
+  ) {
     return message;
   }
 

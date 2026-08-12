@@ -1,25 +1,44 @@
 import { createServerFn } from "@tanstack/react-start";
 
-import type { CommandResult } from "../types/backend";
+import type { CommandResult, UploadedDocumentsResponse } from "../types/backend";
 
-interface BridgeInvokeInput {
+interface BackendInvokeInput {
   action: string;
   payload: Record<string, unknown>;
 }
 
-const BRIDGE_NOT_CONFIGURED =
-  "Executor Lumina nao configurado. Defina LINKAI_BRIDGE_URL no ambiente publicado.";
+interface UploadFilePayload {
+  contentBase64: string;
+  name: string;
+  type: string | null;
+}
 
-export const invokeLuminaBridge = createServerFn({ method: "POST" })
-  .validator((data: unknown): BridgeInvokeInput => {
+interface UploadDocumentsInput {
+  files: UploadFilePayload[];
+}
+
+interface PublishedService {
+  missingMessage: string;
+  token: string | null;
+  url: string | null;
+}
+
+const LUMINA_ACTIONS = new Set(["lumina.start"]);
+const PROCESSING_NOT_CONFIGURED =
+  "Servico de processamento de documentos nao configurado. Defina LINKAI_PROCESSING_URL no ambiente publicado.";
+const LUMINA_NOT_CONFIGURED =
+  "Executor Lumina nao configurado. Defina LINKAI_LUMINA_URL no ambiente publicado.";
+
+export const invokePublishedBackend = createServerFn({ method: "POST" })
+  .validator((data: unknown): BackendInvokeInput => {
     if (!data || typeof data !== "object") {
-      throw new Error("Invalid bridge payload.");
+      throw new Error("Invalid backend payload.");
     }
 
-    const candidate = data as Partial<BridgeInvokeInput>;
+    const candidate = data as Partial<BackendInvokeInput>;
 
     if (typeof candidate.action !== "string" || candidate.action.trim().length === 0) {
-      throw new Error("Invalid bridge action.");
+      throw new Error("Invalid backend action.");
     }
 
     return {
@@ -33,29 +52,20 @@ export const invokeLuminaBridge = createServerFn({ method: "POST" })
     };
   })
   .handler(async ({ data }): Promise<CommandResult<unknown>> => {
-    const bridgeUrl = bridgeBaseUrl();
+    const service = serviceForAction(data.action);
 
-    if (!bridgeUrl) {
+    if (!service.url) {
       return {
         ok: false,
         data: null,
-        error: BRIDGE_NOT_CONFIGURED,
+        error: service.missingMessage,
       };
     }
 
     try {
-      const headers: Record<string, string> = {
-        "Content-Type": "application/json",
-      };
-      const token = process.env["LINKAI_BRIDGE_TOKEN"];
-
-      if (token) {
-        headers.Authorization = `Bearer ${token}`;
-      }
-
-      const response = await fetch(`${bridgeUrl}/invoke`, {
+      const response = await fetch(`${service.url}/invoke`, {
         method: "POST",
-        headers,
+        headers: jsonHeaders(service.token),
         body: JSON.stringify(data),
       });
 
@@ -63,7 +73,7 @@ export const invokeLuminaBridge = createServerFn({ method: "POST" })
         return {
           ok: false,
           data: null,
-          error: `Executor Lumina respondeu com status ${response.status}.`,
+          error: `Servico respondeu com status ${response.status}.`,
         };
       }
 
@@ -74,22 +84,148 @@ export const invokeLuminaBridge = createServerFn({ method: "POST" })
         ok: false,
         data: null,
         error:
-          error instanceof Error ? error.message : "Nao foi possivel acionar o executor Lumina.",
+          error instanceof Error ? error.message : "Nao foi possivel acionar o servico publicado.",
       };
     }
   });
 
-function bridgeBaseUrl(): string | null {
-  const configuredUrl =
-    process.env["LINKAI_BRIDGE_URL"] ??
-    process.env["LINKAI_API_URL"] ??
-    process.env["VITE_LINKAI_API_URL"];
+export const uploadPublishedDocuments = createServerFn({ method: "POST" })
+  .validator((data: unknown): UploadDocumentsInput => {
+    if (!data || typeof data !== "object") {
+      throw new Error("Invalid upload payload.");
+    }
 
-  if (!configuredUrl) {
-    return null;
+    const files = (data as Partial<UploadDocumentsInput>).files;
+
+    if (!Array.isArray(files) || files.length === 0) {
+      throw new Error("Nenhum documento enviado.");
+    }
+
+    return {
+      files: files.map((file) => {
+        if (
+          !file ||
+          typeof file !== "object" ||
+          typeof file.name !== "string" ||
+          typeof file.contentBase64 !== "string"
+        ) {
+          throw new Error("Documento invalido.");
+        }
+
+        return {
+          contentBase64: file.contentBase64,
+          name: file.name,
+          type: typeof file.type === "string" ? file.type : null,
+        };
+      }),
+    };
+  })
+  .handler(async ({ data }): Promise<CommandResult<UploadedDocumentsResponse>> => {
+    const service = processingService();
+
+    if (!service.url) {
+      return {
+        ok: false,
+        data: null,
+        error: service.missingMessage,
+      };
+    }
+
+    try {
+      const formData = new FormData();
+
+      for (const file of data.files) {
+        const bytes = base64ToBytes(file.contentBase64);
+        const blob = new Blob([bytes], {
+          type: file.type ?? "application/octet-stream",
+        });
+        formData.append("files", blob, file.name);
+      }
+
+      const response = await fetch(`${service.url}/uploads/documents`, {
+        method: "POST",
+        headers: tokenHeaders(service.token),
+        body: formData,
+      });
+
+      if (!response.ok) {
+        return {
+          ok: false,
+          data: null,
+          error: `Servico de processamento respondeu com status ${response.status}.`,
+        };
+      }
+
+      return {
+        ok: true,
+        data: (await response.json()) as UploadedDocumentsResponse,
+        error: null,
+      };
+    } catch (error) {
+      return {
+        ok: false,
+        data: null,
+        error:
+          error instanceof Error
+            ? error.message
+            : "Nao foi possivel enviar os documentos para processamento.",
+      };
+    }
+  });
+
+function serviceForAction(action: string): PublishedService {
+  return LUMINA_ACTIONS.has(action) ? luminaService() : processingService();
+}
+
+function processingService(): PublishedService {
+  return {
+    missingMessage: PROCESSING_NOT_CONFIGURED,
+    token:
+      env("LINKAI_PROCESSING_TOKEN") ??
+      env("LINKAI_DOCUMENT_PROCESSING_TOKEN") ??
+      env("LINKAI_BRIDGE_TOKEN"),
+    url:
+      env("LINKAI_PROCESSING_URL") ??
+      env("LINKAI_DOCUMENT_PROCESSING_URL") ??
+      env("LINKAI_API_URL") ??
+      env("LINKAI_BRIDGE_URL") ??
+      env("VITE_LINKAI_API_URL"),
+  };
+}
+
+function luminaService(): PublishedService {
+  return {
+    missingMessage: LUMINA_NOT_CONFIGURED,
+    token: env("LINKAI_LUMINA_TOKEN") ?? env("LINKAI_BRIDGE_TOKEN"),
+    url: env("LINKAI_LUMINA_URL") ?? env("LINKAI_LUMINA_BRIDGE_URL") ?? env("LINKAI_BRIDGE_URL"),
+  };
+}
+
+function env(name: string): string | null {
+  const value = process.env[name]?.trim();
+  return value ? value.replace(/\/+$/, "") : null;
+}
+
+function jsonHeaders(token: string | null): Record<string, string> {
+  return {
+    "Content-Type": "application/json",
+    ...tokenHeaders(token),
+  };
+}
+
+function tokenHeaders(token: string | null): Record<string, string> {
+  return token ? { Authorization: `Bearer ${token}` } : {};
+}
+
+function base64ToBytes(value: string): Uint8Array {
+  const binary = atob(value);
+  const bytes = new Uint8Array(binary.length);
+
+  for (let index = 0; index < binary.length; index += 1) {
+    bytes[index] = binary.charCodeAt(index);
   }
 
-  return configuredUrl.trim().replace(/\/+$/, "");
+  return bytes;
 }
 
 function normalizeBridgeResult(result: CommandResult<unknown>): CommandResult<unknown> {
