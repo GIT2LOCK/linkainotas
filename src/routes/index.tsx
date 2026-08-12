@@ -2,6 +2,7 @@ import { createFileRoute, redirect, useRouter } from "@tanstack/react-router";
 import { useServerFn } from "@tanstack/react-start";
 import { ArrowRight, KeyRound, Loader2, Lock, Mail, ShieldCheck, User } from "lucide-react";
 import { useState } from "react";
+import { toast } from "sonner";
 
 import linkaLogo from "@/assets/linka-logo-white.png.asset.json";
 import { BackgroundReel } from "@/components/BackgroundReel";
@@ -65,6 +66,7 @@ function AuthScreen() {
 
   async function handleStep(step: AuthStep) {
     if (step.step === "authenticated") {
+      toast.success("Login efetuado com sucesso");
       await router.invalidate();
       router.navigate({ to: "/dashboard" });
       return;
