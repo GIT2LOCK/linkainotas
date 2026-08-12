@@ -16,6 +16,8 @@ const COOKIE_DEFAULTS: CookieOptions = {
   // "none" é necessário para a sessão sobreviver ao preview em iframe (contexto cross-site).
   sameSite: "none",
   path: "/",
+  // CHIPS: necessário para o cookie sobreviver ao contexto cross-site do preview.
+  partitioned: true,
 };
 
 export function getSupabaseServerClient() {

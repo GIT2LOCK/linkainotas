@@ -67,15 +67,12 @@ function AuthScreen() {
   async function handleStep(step: AuthStep) {
     if (step.step === "authenticated") {
       toast.success("Login efetuado com sucesso");
-      await router.invalidate();
-      try {
-        await router.navigate({ to: "/dashboard", replace: true });
-      } catch {
-        // ignore: fallback abaixo garante o redirecionamento
-      }
-      if (typeof window !== "undefined" && window.location.pathname !== "/dashboard") {
+      // Reload completo: garante que o SSR do /dashboard leia os cookies recém-criados.
+      if (typeof window !== "undefined") {
         window.location.assign("/dashboard");
+        return;
       }
+      await router.navigate({ to: "/dashboard", replace: true });
       return;
     }
     setCode("");
