@@ -15,15 +15,27 @@ export type SessionUser = {
   avatarUrl: string | null;
 };
 
+function isMissingAriiaSessionConfig(error: unknown): boolean {
+  return (
+    error instanceof Error &&
+    error.message.startsWith("Variável de ambiente ausente: ARIIA_SESSION_SECRET.")
+  );
+}
+
 export const getCurrentSession = createServerFn({ method: "GET" }).handler(
   async (): Promise<{ user: SessionUser | null }> => {
     const { getValidAriiaSession } = await import("./ariia-session.server");
-    const ariia = await getValidAriiaSession();
+    let ariia;
+    try {
+      ariia = await getValidAriiaSession();
+    } catch (error) {
+      if (isMissingAriiaSessionConfig(error)) return { user: null };
+      throw error;
+    }
     if (!ariia) return { user: null };
 
-    const { getSupabaseServerClient } = await import(
-      "@/integrations/supabase/server-session.server"
-    );
+    const { getSupabaseServerClient } =
+      await import("@/integrations/supabase/server-session.server");
     const supabase = getSupabaseServerClient();
     const { data, error } = await supabase.auth.getUser();
     if (error || !data.user) return { user: null };
@@ -54,9 +66,8 @@ export const getSupabaseAccessToken = createServerFn({ method: "GET" }).handler(
     const { getValidAriiaSession } = await import("./ariia-session.server");
     if (!(await getValidAriiaSession())) return { accessToken: null };
 
-    const { getSupabaseServerClient } = await import(
-      "@/integrations/supabase/server-session.server"
-    );
+    const { getSupabaseServerClient } =
+      await import("@/integrations/supabase/server-session.server");
     const supabase = getSupabaseServerClient();
     const { data } = await supabase.auth.getSession();
     return { accessToken: data.session?.access_token ?? null };

@@ -11,9 +11,8 @@ export async function finalizeAriiaResult(
   mode: "login" | "signup",
   email: string,
 ): Promise<AuthStep> {
-  const { writePendingTwoFactor, clearPendingTwoFactor, writeAriiaSession } = await import(
-    "./ariia-session.server"
-  );
+  const { writePendingTwoFactor, clearPendingTwoFactor, writeAriiaSession } =
+    await import("./ariia-session.server");
 
   if (result.kind === "requires2FA") {
     await writePendingTwoFactor({ mode: "login", challengeToken: result.challengeToken, email });

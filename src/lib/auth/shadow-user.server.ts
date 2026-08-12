@@ -25,8 +25,8 @@ export type LinkaiUser = {
 
 /** Busca um usuário do GoTrue por e-mail via Admin API REST (filtro por e-mail). */
 async function findAuthUserIdByEmail(email: string): Promise<string | null> {
-  const supabaseUrl = process.env['SUPABASE_URL'];
-  const serviceKey = process.env['SUPABASE_SERVICE_ROLE_KEY'];
+  const supabaseUrl = process.env["SUPABASE_URL"];
+  const serviceKey = process.env["SUPABASE_SERVICE_ROLE_KEY"];
   if (!supabaseUrl || !serviceKey) return null;
 
   const url = new URL(`${supabaseUrl}/auth/v1/admin/users`);
@@ -74,7 +74,9 @@ async function createShadowAuthUser(identity: AriiaIdentity): Promise<string> {
   const existing = await findAuthUserIdByEmail(identity.email);
   if (existing) return existing;
 
-  throw new Error(`Não foi possível provisionar o usuário-espelho: ${error?.message ?? "erro desconhecido"}`);
+  throw new Error(
+    `Não foi possível provisionar o usuário-espelho: ${error?.message ?? "erro desconhecido"}`,
+  );
 }
 
 function mapRow(row: {

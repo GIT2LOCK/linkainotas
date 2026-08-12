@@ -6,6 +6,8 @@ yarn-debug.log*
 yarn-error.log*
 pnpm-debug.log*
 lerna-debug.log*
+__pycache__/
+*.py[cod]
 
 node_modules
 dist
@@ -19,6 +21,26 @@ dist-ssr
 # Wrangler / Cloudflare
 .wrangler/
 .dev.vars
+
+# LinkAI Lumina local automation
+lumina_bot/.env
+lumina_bot/.env.*
+!lumina_bot/.env.example
+lumina_bot/.git/
+lumina_bot/.venv/
+lumina_bot/linkai.zip
+lumina_bot/logs/*
+!lumina_bot/logs/.gitkeep
+lumina_bot/screenshots/*
+!lumina_bot/screenshots/.gitkeep
+lumina_bot/output/pdfs/*
+!lumina_bot/output/pdfs/.gitkeep
+lumina_bot/output/excel/*
+!lumina_bot/output/excel/.gitkeep
+lumina_bot/output/logs/*
+!lumina_bot/output/logs/.gitkeep
+lumina_bot/output/temp/*
+!lumina_bot/output/temp/.gitkeep
 
 # Editor directories and files
 .vscode/*

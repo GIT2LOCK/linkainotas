@@ -11,5 +11,8 @@ export const signupSchema = credentialsSchema.extend({
 });
 
 export const codeSchema = z.object({
-  code: z.string().trim().regex(/^\d{6}$/, "O código tem 6 dígitos."),
+  code: z
+    .string()
+    .trim()
+    .regex(/^\d{6}$/, "O código tem 6 dígitos."),
 });

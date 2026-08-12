@@ -1,0 +1,1 @@
+-r ../lumina_bot/requirements.txt

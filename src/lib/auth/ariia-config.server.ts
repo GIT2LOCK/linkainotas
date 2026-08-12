@@ -33,7 +33,7 @@ export function getAriiaConfig(): AriiaConfig {
   } catch {
     origin = raw.replace(/\/(auth|functions)\/v1$/, "");
   }
-  const appBaseUrl = (process.env['APP_BASE_URL'] ?? "").trim().replace(/\/+$/, "");
+  const appBaseUrl = (process.env["APP_BASE_URL"] ?? "").trim().replace(/\/+$/, "");
 
   return {
     functionsBaseUrl: `${origin}/functions/v1`,

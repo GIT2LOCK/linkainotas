@@ -1,42 +1,26 @@
-import { useEffect, useState } from "react";
-import take1 from "@/assets/take1.mp4.asset.json";
-import take2 from "@/assets/take2.mp4.asset.json";
-import take3 from "@/assets/take3.mp4.asset.json";
-
-const takes = [take1.url, take2.url, take3.url];
-const TAKE_MS = 7000;
-
+const videoId = "S9l3YWjk1VA";
+const videoUrl = `https://www.youtube-nocookie.com/embed/${videoId}?autoplay=1&mute=1&controls=0&loop=1&playlist=${videoId}&playsinline=1&rel=0&iv_load_policy=3&disablekb=1&fs=0`;
 
 export function BackgroundReel() {
-  const [active, setActive] = useState(0);
-
-  useEffect(() => {
-    const id = window.setInterval(
-      () => setActive((i) => (i + 1) % takes.length),
-      TAKE_MS,
-    );
-    return () => window.clearInterval(id);
-  }, []);
-
   return (
-    <div aria-hidden="true" className="absolute inset-0 overflow-hidden">
-      {takes.map((src, i) => (
-        <video
-          key={src}
-          src={src}
-          autoPlay
-          muted
-          loop
-          playsInline
-          preload="auto"
-          className="absolute inset-0 h-full w-full object-cover transition-opacity duration-[1400ms] ease-in-out"
-          style={{
-            opacity: i === active ? 1 : 0,
-            animation: `reel-zoom ${TAKE_MS * 2}ms ease-in-out infinite alternate`,
-            animationDelay: `${i * -900}ms`,
-          }}
-        />
-      ))}
+    <div
+      aria-hidden="true"
+      className="pointer-events-none absolute inset-0 overflow-hidden bg-black"
+    >
+      <iframe
+        allow="autoplay; encrypted-media"
+        className="absolute left-1/2 top-1/2 border-0"
+        loading="eager"
+        referrerPolicy="strict-origin-when-cross-origin"
+        src={videoUrl}
+        style={{
+          width: "max(100vw, 177.78vh)",
+          height: "max(100vh, 56.25vw)",
+          transform: "translate(-50%, -50%)",
+        }}
+        tabIndex={-1}
+        title="Vídeo de fundo da LinkAI"
+      />
     </div>
   );
 }

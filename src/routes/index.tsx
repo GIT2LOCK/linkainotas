@@ -1,11 +1,11 @@
-import { createFileRoute, redirect, useRouter } from "@tanstack/react-router";
+import { createFileRoute, redirect } from "@tanstack/react-router";
 import { useServerFn } from "@tanstack/react-start";
 import { ArrowRight, KeyRound, Loader2, Lock, Mail, ShieldCheck, User } from "lucide-react";
 import { useState } from "react";
 import { toast } from "sonner";
 
-import linkaLogo from "@/assets/linka-logo-white.png.asset.json";
 import { BackgroundReel } from "@/components/BackgroundReel";
+import linkaiLoginLogoUrl from "@/features/lumina/assets/linkai-logo.png";
 import {
   loginWithAriia,
   signupWithAriia,
@@ -37,18 +37,19 @@ export const Route = createFileRoute("/")({
 });
 
 type Mode = "login" | "signup";
+const LOGIN_REDIRECT_DELAY_MS = 1000;
 
 function errorMessage(error: unknown): string {
   if (error instanceof Error && error.message) {
     const clean = error.message.replace(/^Error:\s*/, "");
-    if (clean.startsWith("{") || clean.includes("[object")) return "Não foi possível concluir. Tente novamente.";
+    if (clean.startsWith("{") || clean.includes("[object"))
+      return "Não foi possível concluir. Tente novamente.";
     return clean;
   }
   return "Não foi possível concluir. Tente novamente.";
 }
 
 function AuthScreen() {
-  const router = useRouter();
   const login = useServerFn(loginWithAriia);
   const signup = useServerFn(signupWithAriia);
   const verify = useServerFn(verifyTwoFactor);
@@ -58,7 +59,10 @@ function AuthScreen() {
   const [email, setEmail] = useState("");
   const [senha, setSenha] = useState("");
   const [code, setCode] = useState("");
-  const [challenge, setChallenge] = useState<Extract<AuthStep, { step: "2fa" | "setup2fa" }> | null>(null);
+  const [challenge, setChallenge] = useState<Extract<
+    AuthStep,
+    { step: "2fa" | "setup2fa" }
+  > | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [pending, setPending] = useState(false);
 
@@ -66,13 +70,13 @@ function AuthScreen() {
 
   async function handleStep(step: AuthStep) {
     if (step.step === "authenticated") {
-      toast.success("Login efetuado com sucesso");
       // Reload completo: garante que o SSR do /dashboard leia os cookies recém-criados.
       if (typeof window !== "undefined") {
+        toast.success("Login Efetuado com sucesso");
+        await new Promise((resolve) => window.setTimeout(resolve, LOGIN_REDIRECT_DELAY_MS));
         window.location.assign("/dashboard");
         return;
       }
-      await router.navigate({ to: "/dashboard", replace: true });
       return;
     }
     setCode("");
@@ -122,7 +126,7 @@ function AuthScreen() {
 
       <section className="relative w-full max-w-sm rounded-3xl border border-glass-border bg-glass p-8 backdrop-blur-2xl [box-shadow:var(--shadow-glass)]">
         <div className="flex flex-col items-center gap-3">
-          <img src={linkaLogo.url} alt="Linka Engenharia" className="h-16 w-auto" />
+          <img src={linkaiLoginLogoUrl} alt="LinkAI Engenharia" className="h-16 w-auto" />
         </div>
 
         {challenge ? (
@@ -147,7 +151,9 @@ function AuthScreen() {
                 )}
                 <p className="text-center text-xs text-glass-muted">
                   Ou digite a chave:{" "}
-                  <span className="font-mono tracking-wider text-glass-foreground">{challenge.secret}</span>
+                  <span className="font-mono tracking-wider text-glass-foreground">
+                    {challenge.secret}
+                  </span>
                 </p>
               </div>
             )}
@@ -183,7 +189,9 @@ function AuthScreen() {
             <div className="relative mt-6 grid grid-cols-2 rounded-xl border border-glass-border bg-glass p-1 backdrop-blur-xl">
               <span
                 className="absolute inset-y-1 w-[calc(50%-0.25rem)] rounded-lg bg-brand transition-transform duration-500 [transition-timing-function:cubic-bezier(0.22,1,0.36,1)]"
-                style={{ transform: isSignup ? "translateX(calc(100% + 0.5rem))" : "translateX(0)" }}
+                style={{
+                  transform: isSignup ? "translateX(calc(100% + 0.5rem))" : "translateX(0)",
+                }}
               />
               {(["login", "signup"] as const).map((value) => (
                 <button
@@ -191,7 +199,9 @@ function AuthScreen() {
                   type="button"
                   onClick={() => switchMode(value)}
                   className={`relative z-10 rounded-lg py-2 text-sm font-medium transition-colors ${
-                    mode === value ? "text-brand-foreground" : "text-glass-muted hover:text-glass-foreground"
+                    mode === value
+                      ? "text-brand-foreground"
+                      : "text-glass-muted hover:text-glass-foreground"
                   }`}
                 >
                   {value === "login" ? "Entrar" : "Cadastrar"}
@@ -205,7 +215,10 @@ function AuthScreen() {
             >
               {isSignup ? "Criar sua conta" : "Bem-vindo ao Linkai"}
             </h1>
-            <p key={`sub-${mode}`} className="mt-2 animate-fade-in text-center text-sm text-glass-muted">
+            <p
+              key={`sub-${mode}`}
+              className="mt-2 animate-fade-in text-center text-sm text-glass-muted"
+            >
               {isSignup
                 ? "Sua conta é criada no Ariia e sincronizada com o Linkai"
                 : "Entre com sua conta corporativa"}
@@ -273,8 +286,8 @@ function AuthScreen() {
         <div className="mt-6 flex items-start gap-2.5 rounded-xl border border-glass-border bg-glass px-4 py-3 backdrop-blur-xl">
           <ShieldCheck className="mt-0.5 h-4 w-4 shrink-0 text-brand" />
           <p className="text-xs leading-relaxed text-glass-muted">
-            O Linkai não armazena senhas. Sua identidade é validada pelo Ariia, o provedor de
-            acesso corporativo da Linka Engenharia.
+            O Linkai não armazena senhas. Sua identidade é validada pelo Ariia, o provedor de acesso
+            corporativo da Linka Engenharia.
           </p>
         </div>
       </section>
@@ -282,13 +295,7 @@ function AuthScreen() {
   );
 }
 
-function Field({
-  icon: Icon,
-  children,
-}: {
-  icon: typeof Mail;
-  children: React.ReactNode;
-}) {
+function Field({ icon: Icon, children }: { icon: typeof Mail; children: React.ReactNode }) {
   return (
     <label className="flex items-center gap-3 rounded-xl border border-glass-border bg-glass px-4 py-3 backdrop-blur-xl transition-colors focus-within:border-brand/70">
       <Icon className="h-4 w-4 shrink-0 text-glass-muted" />

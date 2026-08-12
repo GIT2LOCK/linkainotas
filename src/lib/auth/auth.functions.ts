@@ -43,7 +43,11 @@ export const verifyTwoFactor = createServerFn({ method: "POST" })
     const { ariiaVerifyTwoFactor } = await import("./ariia-api.server");
     const result =
       pending.mode === "signup" && pending.setupToken
-        ? await ariiaVerifyTwoFactor({ code: data.code, isSetup: true, setupToken: pending.setupToken })
+        ? await ariiaVerifyTwoFactor({
+            code: data.code,
+            isSetup: true,
+            setupToken: pending.setupToken,
+          })
         : await ariiaVerifyTwoFactor({
             code: data.code,
             isSetup: false,
@@ -54,11 +58,13 @@ export const verifyTwoFactor = createServerFn({ method: "POST" })
     return finalizeAriiaResult(result, pending.mode, pending.email);
   });
 
-export const signOut = createServerFn({ method: "POST" }).handler(async (): Promise<{ ok: true }> => {
-  const { clearAriiaSession, clearPendingTwoFactor } = await import("./ariia-session.server");
-  const { destroySupabaseSession } = await import("./session-bridge.server");
-  await destroySupabaseSession();
-  await clearAriiaSession();
-  await clearPendingTwoFactor();
-  return { ok: true };
-});
+export const signOut = createServerFn({ method: "POST" }).handler(
+  async (): Promise<{ ok: true }> => {
+    const { clearAriiaSession, clearPendingTwoFactor } = await import("./ariia-session.server");
+    const { destroySupabaseSession } = await import("./session-bridge.server");
+    await destroySupabaseSession();
+    await clearAriiaSession();
+    await clearPendingTwoFactor();
+    return { ok: true };
+  },
+);

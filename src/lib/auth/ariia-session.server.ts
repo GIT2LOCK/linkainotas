@@ -23,15 +23,16 @@ export type AriiaSessionData = {
 };
 
 const MAX_AGE_SECONDS = 60 * 60 * 24 * 30;
+const isDevServer = process.env.NODE_ENV === "development";
 
 const cookieOptions = {
   httpOnly: true,
-  secure: true,
-  // "none" mantém a sessão válida também dentro do preview em iframe (cross-site).
-  sameSite: "none" as const,
+  secure: !isDevServer,
+  // Em dev via LAN o app roda em HTTP, então cookies Secure seriam recusados.
+  // Em produção/preview, "none" + partitioned mantém sessão em iframe cross-site.
+  sameSite: isDevServer ? ("lax" as const) : ("none" as const),
   path: "/",
-  // CHIPS: sem isto o navegador descarta cookies cross-site dentro do preview em iframe.
-  partitioned: true,
+  ...(isDevServer ? {} : { partitioned: true }),
 };
 
 function sessionConfig() {

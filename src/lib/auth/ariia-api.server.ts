@@ -124,7 +124,10 @@ function interpret(payload: AriiaEnvelope): AriiaAuthResult {
 }
 
 /** POST /functions/v1/login */
-export async function ariiaLogin(input: { email: string; senha: string }): Promise<AriiaAuthResult> {
+export async function ariiaLogin(input: {
+  email: string;
+  senha: string;
+}): Promise<AriiaAuthResult> {
   return interpret(await callAriia("login", { email: input.email, senha: input.senha }));
 }
 
