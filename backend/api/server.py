@@ -4,10 +4,11 @@ from __future__ import annotations
 
 import shutil
 import uuid
+import os
 from pathlib import Path
 from typing import Any
 
-from fastapi import FastAPI, File, UploadFile
+from fastapi import Depends, FastAPI, File, HTTPException, Request, UploadFile, status
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel, Field
 
@@ -30,11 +31,41 @@ app = FastAPI(
 
 app.add_middleware(
     CORSMiddleware,
-    allow_origin_regex=r"https?://(localhost|127\.0\.0\.1|[0-9.]+)(:\d+)?",
+    allow_origins=[
+        origin.strip()
+        for origin in os.getenv(
+            "LINKAI_ALLOWED_ORIGINS",
+            "http://localhost:5173,http://127.0.0.1:5173,https://linkai.2lock.app.br",
+        ).split(",")
+        if origin.strip()
+    ],
+    allow_origin_regex=os.getenv(
+        "LINKAI_ALLOWED_ORIGIN_REGEX",
+        r"https?://(localhost|127\.0\.0\.1|[0-9.]+)(:\d+)?|https://.*\.lovable\.app",
+    ),
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
 )
+
+
+def require_bridge_token(request: Request) -> None:
+    """Require an optional bearer token before executing automation commands."""
+    expected_token = os.getenv("LINKAI_BRIDGE_TOKEN")
+
+    if not expected_token:
+        return
+
+    authorization = request.headers.get("authorization", "")
+    header_token = request.headers.get("x-linkai-bridge-token", "")
+
+    if authorization == f"Bearer {expected_token}" or header_token == expected_token:
+        return
+
+    raise HTTPException(
+        status_code=status.HTTP_401_UNAUTHORIZED,
+        detail="Unauthorized bridge request.",
+    )
 
 
 @app.get("/health")
@@ -46,14 +77,14 @@ def health() -> dict[str, Any]:
     }
 
 
-@app.post("/invoke")
+@app.post("/invoke", dependencies=[Depends(require_bridge_token)])
 def invoke_backend(request: InvokeRequest) -> dict[str, Any]:
     """Invoke backend services using the same command bridge used by Tauri."""
     result = DesktopBridge().handle(request.action, request.payload)
     return result.to_dict()
 
 
-@app.post("/uploads/documents")
+@app.post("/uploads/documents", dependencies=[Depends(require_bridge_token)])
 async def upload_documents(files: list[UploadFile] = File(...)) -> dict[str, Any]:
     """Receive PDF/XML documents selected in the browser as local temp files."""
     upload_dir = PROJECT_ROOT / "output" / "temp" / "uploads" / uuid.uuid4().hex
@@ -81,7 +112,7 @@ async def upload_documents(files: list[UploadFile] = File(...)) -> dict[str, Any
     }
 
 
-@app.post("/uploads/pdfs")
+@app.post("/uploads/pdfs", dependencies=[Depends(require_bridge_token)])
 async def upload_pdfs(files: list[UploadFile] = File(...)) -> dict[str, Any]:
     """Backward-compatible upload endpoint for older frontend builds."""
     return await upload_documents(files)

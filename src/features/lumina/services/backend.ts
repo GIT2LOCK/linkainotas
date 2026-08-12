@@ -5,6 +5,7 @@ import type {
   PainelIndicadores,
   UploadedDocumentsResponse,
 } from "../types/backend";
+import { invokeLuminaBridge } from "./bridge.functions";
 
 declare global {
   interface Window {
@@ -17,15 +18,16 @@ export const PUBLISHED_CONNECTOR_MESSAGE =
 
 export async function callBackend<T>(action: string, payload: object = {}): Promise<T> {
   const fallback = fallbackForAction<T>(action, payload);
+  const apiBaseUrl = localApiBaseUrl();
 
-  if (!localApiBaseUrl() && fallback !== undefined) {
-    return fallback;
+  if (!apiBaseUrl) {
+    return callPublishedBridge(action, payload, fallback);
   }
 
   let result: CommandResult<T>;
 
   try {
-    result = await callLocalApi<T>(action, payload);
+    result = await callLocalApi<T>(apiBaseUrl, action, payload);
   } catch (error) {
     if (fallback !== undefined) {
       return fallback;
@@ -80,13 +82,11 @@ export async function uploadLocalDocuments(files: File[]): Promise<UploadedDocum
 
 export const uploadLocalPdfs = uploadLocalDocuments;
 
-async function callLocalApi<T>(action: string, payload: object): Promise<CommandResult<T>> {
-  const apiBaseUrl = localApiBaseUrl();
-
-  if (!apiBaseUrl) {
-    throw new Error(PUBLISHED_CONNECTOR_MESSAGE);
-  }
-
+async function callLocalApi<T>(
+  apiBaseUrl: string,
+  action: string,
+  payload: object,
+): Promise<CommandResult<T>> {
   const response = await fetch(`${apiBaseUrl}/invoke`, {
     method: "POST",
     headers: {
@@ -100,6 +100,29 @@ async function callLocalApi<T>(action: string, payload: object): Promise<Command
   }
 
   return (await response.json()) as CommandResult<T>;
+}
+
+async function callPublishedBridge<T>(
+  action: string,
+  payload: object,
+  fallback: T | undefined,
+): Promise<T> {
+  const result = (await invokeLuminaBridge({
+    data: {
+      action,
+      payload,
+    },
+  })) as CommandResult<T>;
+
+  if (result.ok) {
+    return result.data as T;
+  }
+
+  if (fallback !== undefined) {
+    return fallback;
+  }
+
+  throw new Error(result.error ?? PUBLISHED_CONNECTOR_MESSAGE);
 }
 
 function localApiBaseUrl(): string | null {
@@ -158,13 +181,6 @@ function fallbackForAction<T>(action: string, payload: object): T | undefined {
     } as T;
   }
 
-  if (action === "lumina.start") {
-    return {
-      status: "requires_connector",
-      message: PUBLISHED_CONNECTOR_MESSAGE,
-    } as T;
-  }
-
   if (action === "documents.last") {
     return null as T;
   }
@@ -180,15 +196,6 @@ function fallbackForAction<T>(action: string, payload: object): T | undefined {
         "LinkAI Web publicado com sucesso.",
         "Os logs da automacao de processamento serao exibidos quando o conector da Lumina estiver configurado neste ambiente.",
       ],
-    } as T;
-  }
-
-  if (action === "cloud.test") {
-    return {
-      status: "Conector pendente",
-      space: "Nuvem",
-      folder: "/",
-      items: 0,
     } as T;
   }
 
