@@ -237,7 +237,7 @@ function normalizeBridgeResult(result: CommandResult<JsonValue>): CommandResult<
 
   return {
     ok: true,
-    data: result,
+    data: result as unknown as JsonValue,
     error: null,
   };
 }
