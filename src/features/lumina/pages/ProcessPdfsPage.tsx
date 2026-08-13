@@ -20,6 +20,7 @@ import { MetricCard } from "../components/MetricCard";
 import { ToggleRow } from "../components/ToggleRow";
 import { callBackend, uploadLocalDocuments } from "../services/backend";
 import type {
+  DownloadableFile,
   ExcelMode,
   ProcessingOptions,
   ProcessingResponse,
@@ -54,36 +55,36 @@ const columns = [
   {
     key: "sizeBytes",
     label: "Tamanho",
-    render: (row: Record<string, unknown>) => formatBytes(row["sizeBytes"] as number | null),
+    render: (row: Record<string, unknown>) => formatBytes(row.sizeBytes as number | null),
   },
   { key: "status", label: "Status" },
   {
     key: "source",
     label: "Origem",
-    render: (row: Record<string, unknown>) => displayOrigin(String(row["source"] ?? "-")),
+    render: (row: Record<string, unknown>) => displayOrigin(String(row.source ?? "-")),
   },
   {
     key: "hash",
     label: "Hash",
     render: (row: Record<string, unknown>) =>
-      typeof row["hash"] === "string" ? row["hash"].slice(0, 12) : "-",
+      typeof row.hash === "string" ? row.hash.slice(0, 12) : "-",
   },
   { key: "parser", label: "Parser" },
   {
     key: "downloadedPath",
     label: "Arquivo local",
     render: (row: Record<string, unknown>) =>
-      displayPath(String(row["downloadedPath"] ?? row["path"] ?? "-")),
+      displayPath(String(row.downloadedPath ?? row.path ?? "-")),
   },
   {
     key: "error",
     label: "Erro",
-    render: (row: Record<string, unknown>) => String(row["error"] ?? "-"),
+    render: (row: Record<string, unknown>) => String(row.error ?? "-"),
   },
   {
     key: "progress",
     label: "Progresso",
-    render: (row: Record<string, unknown>) => `${String(row["progress"] ?? 0)}%`,
+    render: (row: Record<string, unknown>) => `${String(row.progress ?? 0)}%`,
   },
 ];
 
@@ -163,9 +164,13 @@ export function ProcessPdfsPage() {
           : `${selectedPaths.length} itens`;
 
   async function runProcessing() {
-    if (options.downloadPdfsLocally && !selectedDownloadLabel) {
+    if (options.downloadPdfsLocally && !selectedDownloadLabel && window.showDirectoryPicker) {
       setSelectionError("Escolha o local padrão de download antes de processar.");
       return;
+    }
+
+    if (options.downloadPdfsLocally && !selectedDownloadLabel && !window.showDirectoryPicker) {
+      setDownloadPathLabel("Pasta padrÃ£o de downloads do navegador");
     }
 
     if (source !== "supabase" && selectedPaths.length === 0) {
@@ -199,6 +204,13 @@ export function ProcessPdfsPage() {
         downloadPathLabel: selectedDownloadLabel,
       });
       setPersistedResponse(result);
+      try {
+        await saveExcelFilesForUser(result.excelFiles ?? [], browserDownloadDirectory);
+      } catch {
+        setSelectionError(
+          "O processamento terminou, mas nÃ£o foi possÃ­vel salvar o Excel na pasta escolhida.",
+        );
+      }
     } catch {
       return;
     }
@@ -217,6 +229,9 @@ export function ProcessPdfsPage() {
     setSelectionError(null);
 
     if (!window.showDirectoryPicker) {
+      setBrowserDownloadDirectory(null);
+      setDownloadPath(null);
+      setDownloadPathLabel("Pasta padrÃ£o de downloads do navegador");
       setSelectionError(
         "Este navegador não permite escolher pasta de destino. Use Chrome ou Edge atualizado.",
       );
@@ -549,6 +564,47 @@ export function ProcessPdfsPage() {
   );
 }
 
+async function saveExcelFilesForUser(
+  files: DownloadableFile[],
+  directory: BrowserDirectoryHandle | null,
+) {
+  if (files.length === 0) {
+    return;
+  }
+
+  if (directory) {
+    for (const file of files) {
+      const fileHandle = await directory.getFileHandle(file.name, { create: true });
+      const writable = await fileHandle.createWritable();
+      await writable.write(base64ToBlob(file.contentBase64, file.mimeType));
+      await writable.close();
+    }
+    return;
+  }
+
+  for (const file of files) {
+    const url = URL.createObjectURL(base64ToBlob(file.contentBase64, file.mimeType));
+    const anchor = document.createElement("a");
+    anchor.href = url;
+    anchor.download = file.name;
+    document.body.appendChild(anchor);
+    anchor.click();
+    anchor.remove();
+    window.setTimeout(() => URL.revokeObjectURL(url), 1000);
+  }
+}
+
+function base64ToBlob(contentBase64: string, mimeType: string): Blob {
+  const binary = atob(contentBase64);
+  const bytes = new Uint8Array(binary.length);
+
+  for (let index = 0; index < binary.length; index += 1) {
+    bytes[index] = binary.charCodeAt(index);
+  }
+
+  return new Blob([bytes], { type: mimeType });
+}
+
 interface SourceOptionProps {
   active: boolean;
   description: string;
@@ -636,10 +692,10 @@ function selectionDescription(source: ProcessingSource, paths: string[]) {
   }
 
   if (source === "folder") {
-    return displayPath(paths[0] ?? "");
+    return displayPath(paths[0]);
   }
 
-  return paths.length === 1 ? displayPath(paths[0] ?? "") : `${paths.length} arquivos selecionados.`;
+  return paths.length === 1 ? displayPath(paths[0]) : `${paths.length} arquivos selecionados.`;
 }
 
 function sourceSummaryLabel(source: ProcessingSource) {

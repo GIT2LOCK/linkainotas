@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import base64
 import shutil
 import time
 import re
@@ -65,11 +66,15 @@ class DocumentProcessingService:
     ) -> dict[str, Any]:
         started = time.perf_counter()
         config = replace(get_supabase_config(), pdf_download_path=download_dir)
+        output_dir = PROJECT_ROOT / "output" / "excel"
+        previous_exports = self._excel_export_state(output_dir)
         summary = Processor(config=config).run()
         elapsed = time.perf_counter() - started
+        excel_files = self._excel_exports(output_dir, previous_exports)
         response = {
             "source": "supabase",
             "rows": [],
+            "excelFiles": excel_files,
             "summary": {
                 "listed": summary.listed,
                 "processed": summary.processed,
@@ -259,14 +264,19 @@ class DocumentProcessingService:
                 )
                 self._logger.exception("XML failed and will be skipped: %s", source_path)
 
+        excel_files: list[dict[str, str]] = []
         if options.generate_excel and notas:
-            writer = ExcelWriter(PROJECT_ROOT / "output" / "excel" / "notas.xlsx")
+            output_dir = PROJECT_ROOT / "output" / "excel"
+            previous_exports = self._excel_export_state(output_dir)
+            writer = ExcelWriter(output_dir / "notas.xlsx")
             writer.write(notas, mode=options.excel_mode)
+            excel_files = self._excel_exports(output_dir, previous_exports)
 
         elapsed = time.perf_counter() - started
         response = {
             "source": options.source,
             "rows": rows,
+            "excelFiles": excel_files,
             "summary": {
                 "listed": len(document_paths),
                 "processed": len(notas),
@@ -283,6 +293,48 @@ class DocumentProcessingService:
             download_path=download_dir,
             download_label=options.download_path_label,
         )
+
+    @staticmethod
+    def _excel_export_state(output_dir: Path) -> dict[Path, int]:
+        """Capture existing Excel files before a processing run."""
+        if not output_dir.is_dir():
+            return {}
+
+        state: dict[Path, int] = {}
+        for path in output_dir.glob("*.xlsx"):
+            try:
+                state[path] = path.stat().st_mtime_ns
+            except OSError:
+                continue
+
+        return state
+
+    @staticmethod
+    def _excel_exports(
+        output_dir: Path,
+        previous_exports: dict[Path, int],
+    ) -> list[dict[str, str]]:
+        """Return newly created or updated workbooks for browser download."""
+        if not output_dir.is_dir():
+            return []
+
+        exports: list[dict[str, str]] = []
+        for path in sorted(output_dir.glob("*.xlsx")):
+            try:
+                if previous_exports.get(path) == path.stat().st_mtime_ns:
+                    continue
+
+                exports.append(
+                    {
+                        "name": path.name,
+                        "contentBase64": base64.b64encode(path.read_bytes()).decode("ascii"),
+                        "mimeType": "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+                    }
+                )
+            except OSError:
+                continue
+
+        return exports
 
     def _resolve_download_dir(self, options: ProcessingOptions) -> Path:
         raw_path = options.download_path

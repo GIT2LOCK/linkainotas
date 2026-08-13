@@ -56,6 +56,7 @@ export interface ProcessingRow {
 export interface ProcessingResponse {
   source: string;
   rows?: ProcessingRow[];
+  excelFiles?: DownloadableFile[];
   sessionId?: string;
   processedAt?: string;
   downloadPath?: string | null;
@@ -67,6 +68,12 @@ export interface ProcessingResponse {
     duplicated: number;
     elapsedSeconds?: number;
   };
+}
+
+export interface DownloadableFile {
+  name: string;
+  contentBase64: string;
+  mimeType: string;
 }
 
 export interface SpreadsheetInfo {

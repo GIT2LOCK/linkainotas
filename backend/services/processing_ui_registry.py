@@ -119,7 +119,9 @@ class ProcessingUiRegistry:
             "status": status,
         }
 
-        state["lastProcessing"] = enriched_response
+        persisted_response = deepcopy(enriched_response)
+        persisted_response.pop("excelFiles", None)
+        state["lastProcessing"] = persisted_response
         state["history"] = self._limited([session, *self.list_history()], limit=500)
         state["files"] = self._merge_files(file_records, self.list_files(), processed_at)
         self._save(state)
