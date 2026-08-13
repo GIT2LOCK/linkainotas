@@ -10,7 +10,7 @@ const columns = [
   {
     key: "processedAt",
     label: "Data",
-    render: (row: Record<string, unknown>) => formatDate(row.processedAt as string | null),
+    render: (row: Record<string, unknown>) => formatDate(row["processedAt"] as string | null),
   },
   {
     key: "source",
@@ -24,13 +24,13 @@ const columns = [
   {
     key: "elapsedSeconds",
     label: "Tempo",
-    render: (row: Record<string, unknown>) => formatSeconds(Number(row.elapsedSeconds ?? 0)),
+    render: (row: Record<string, unknown>) => formatSeconds(Number(row["elapsedSeconds"] ?? 0)),
   },
   { key: "status", label: "Status" },
   {
     key: "downloadPath",
     label: "Download",
-    render: (row: Record<string, unknown>) => String(row.downloadPath ?? "-"),
+    render: (row: Record<string, unknown>) => String(row["downloadPath"] ?? "-"),
   },
 ];
 

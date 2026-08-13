@@ -10,13 +10,13 @@ const columns = [
   {
     key: "sizeBytes",
     label: "Tamanho",
-    render: (row: Record<string, unknown>) => `${((row.sizeBytes as number) / 1024).toFixed(1)} KB`,
+    render: (row: Record<string, unknown>) => `${((row["sizeBytes"] as number) / 1024).toFixed(1)} KB`,
   },
   {
     key: "modifiedAt",
     label: "Modificado",
     render: (row: Record<string, unknown>) =>
-      new Date((row.modifiedAt as number) * 1000).toLocaleString(),
+      new Date((row["modifiedAt"] as number) * 1000).toLocaleString(),
   },
   { key: "path", label: "Caminho" },
 ];
