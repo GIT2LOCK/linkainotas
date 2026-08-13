@@ -162,46 +162,7 @@ function arrayBufferToBase64(buffer: ArrayBuffer): string {
 
 function localApiBaseUrl(): string | null {
   const configuredUrl = import.meta.env.VITE_LINKAI_API_URL;
-  if (configuredUrl) {
-    return configuredUrl;
-  }
-
-  if (typeof window !== "undefined" && window.location.hostname) {
-    const { hostname, protocol } = window.location;
-
-    if (canUseLocalApiHost(hostname)) {
-      return `${protocol}//${hostname}:8765`;
-    }
-
-    return null;
-  }
-
-  return null;
-}
-
-function canUseLocalApiHost(hostname: string): boolean {
-  const normalizedHost = hostname.toLowerCase();
-
-  if (
-    normalizedHost === "localhost" ||
-    normalizedHost === "0.0.0.0" ||
-    normalizedHost.endsWith(".local") ||
-    normalizedHost.startsWith("127.")
-  ) {
-    return true;
-  }
-
-  if (normalizedHost.startsWith("10.") || normalizedHost.startsWith("192.168.")) {
-    return true;
-  }
-
-  const private172Match = normalizedHost.match(/^172\.(\d{1,2})\./);
-  if (private172Match) {
-    const secondOctet = Number(private172Match[1]);
-    return secondOctet >= 16 && secondOctet <= 31;
-  }
-
-  return false;
+  return configuredUrl?.trim().replace(/\/+$/, "") || null;
 }
 
 function fallbackForAction<T>(action: string, payload: object): T | undefined {

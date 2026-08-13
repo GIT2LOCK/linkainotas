@@ -7,6 +7,21 @@ O app publicado no Lovable roda o frontend e as server functions em ambiente web
 
 ## Processamento de documentos
 
+Durante o desenvolvimento na rede local, o servidor web deve acessar a API Python
+por meio de uma URL configurada no ambiente do servidor web. Nao use o IP da
+maquina que esta exibindo o frontend, pois a API pode estar em outro computador.
+
+Exemplo para a API Ubuntu publicada por DDNS:
+
+```env
+LINKAI_PROCESSING_URL=http://escritorio.2lock.myddns.com:8765
+LINKAI_PROCESSING_TOKEN=mesmo-token-configurado-na-api-python
+```
+
+Essas variaveis devem ficar no `.env.local` do desenvolvimento ou nos secrets do
+ambiente publicado. O token e lido por uma server function e nao e enviado para o
+JavaScript do navegador.
+
 Configure no Lovable:
 
 ```env
