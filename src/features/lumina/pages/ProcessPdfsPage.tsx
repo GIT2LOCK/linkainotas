@@ -170,7 +170,7 @@ export function ProcessPdfsPage() {
     }
 
     if (options.downloadPdfsLocally && !selectedDownloadLabel && !window.showDirectoryPicker) {
-      setDownloadPathLabel("Pasta padrÃ£o de downloads do navegador");
+      setDownloadPathLabel("Pasta padrão de downloads do navegador");
     }
 
     if (source !== "supabase" && selectedPaths.length === 0) {
@@ -208,7 +208,7 @@ export function ProcessPdfsPage() {
         await saveExcelFilesForUser(result.excelFiles ?? [], browserDownloadDirectory);
       } catch {
         setSelectionError(
-          "O processamento terminou, mas nÃ£o foi possÃ­vel salvar o Excel na pasta escolhida.",
+          "O processamento terminou, mas não foi possível salvar o Excel na pasta escolhida.",
         );
       }
     } catch {
@@ -231,7 +231,7 @@ export function ProcessPdfsPage() {
     if (!window.showDirectoryPicker) {
       setBrowserDownloadDirectory(null);
       setDownloadPath(null);
-      setDownloadPathLabel("Pasta padrÃ£o de downloads do navegador");
+      setDownloadPathLabel("Pasta padrão de downloads do navegador");
       setSelectionError(
         "Este navegador não permite escolher pasta de destino. Use Chrome ou Edge atualizado.",
       );
