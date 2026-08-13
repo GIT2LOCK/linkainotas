@@ -636,10 +636,10 @@ function selectionDescription(source: ProcessingSource, paths: string[]) {
   }
 
   if (source === "folder") {
-    return displayPath(paths[0]);
+    return displayPath(paths[0] ?? "");
   }
 
-  return paths.length === 1 ? displayPath(paths[0]) : `${paths.length} arquivos selecionados.`;
+  return paths.length === 1 ? displayPath(paths[0] ?? "") : `${paths.length} arquivos selecionados.`;
 }
 
 function sourceSummaryLabel(source: ProcessingSource) {
