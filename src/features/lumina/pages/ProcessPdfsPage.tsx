@@ -55,36 +55,36 @@ const columns = [
   {
     key: "sizeBytes",
     label: "Tamanho",
-    render: (row: Record<string, unknown>) => formatBytes(row.sizeBytes as number | null),
+    render: (row: Record<string, unknown>) => formatBytes(row["sizeBytes"] as number | null),
   },
   { key: "status", label: "Status" },
   {
     key: "source",
     label: "Origem",
-    render: (row: Record<string, unknown>) => displayOrigin(String(row.source ?? "-")),
+    render: (row: Record<string, unknown>) => displayOrigin(String(row["source"] ?? "-")),
   },
   {
     key: "hash",
     label: "Hash",
     render: (row: Record<string, unknown>) =>
-      typeof row.hash === "string" ? row.hash.slice(0, 12) : "-",
+      typeof row["hash"] === "string" ? String(row["hash"]).slice(0, 12) : "-",
   },
   { key: "parser", label: "Parser" },
   {
     key: "downloadedPath",
     label: "Arquivo local",
     render: (row: Record<string, unknown>) =>
-      displayPath(String(row.downloadedPath ?? row.path ?? "-")),
+      displayPath(String(row["downloadedPath"] ?? row["path"] ?? "-")),
   },
   {
     key: "error",
     label: "Erro",
-    render: (row: Record<string, unknown>) => String(row.error ?? "-"),
+    render: (row: Record<string, unknown>) => String(row["error"] ?? "-"),
   },
   {
     key: "progress",
     label: "Progresso",
-    render: (row: Record<string, unknown>) => `${String(row.progress ?? 0)}%`,
+    render: (row: Record<string, unknown>) => `${String(row["progress"] ?? 0)}%`,
   },
 ];
 
@@ -692,10 +692,12 @@ function selectionDescription(source: ProcessingSource, paths: string[]) {
   }
 
   if (source === "folder") {
-    return displayPath(paths[0]);
+    return displayPath(paths[0] ?? "-");
   }
 
-  return paths.length === 1 ? displayPath(paths[0]) : `${paths.length} arquivos selecionados.`;
+  return paths.length === 1
+    ? displayPath(paths[0] ?? "-")
+    : `${paths.length} arquivos selecionados.`;
 }
 
 function sourceSummaryLabel(source: ProcessingSource) {
