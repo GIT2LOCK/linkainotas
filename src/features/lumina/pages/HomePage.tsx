@@ -164,7 +164,7 @@ function NewsCarousel({ items }: { items: NoticiaConstrucao[] }) {
 
     return Array.from({ length: Math.min(items.length - 1, 3) }, (_, index) => {
       return items[(activeIndex + index + 1) % items.length];
-    }).filter(Boolean);
+    }).filter((item): item is (typeof items)[number] => Boolean(item));
   }, [activeIndex, items]);
 
   useEffect(() => {

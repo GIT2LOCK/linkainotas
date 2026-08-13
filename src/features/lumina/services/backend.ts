@@ -161,7 +161,7 @@ function arrayBufferToBase64(buffer: ArrayBuffer): string {
 }
 
 function localApiBaseUrl(): string | null {
-  const configuredUrl = import.meta.env.VITE_LINKAI_API_URL;
+  const configuredUrl = import.meta.env["VITE_LINKAI_API_URL"];
   return configuredUrl?.trim().replace(/\/+$/, "") || null;
 }
 

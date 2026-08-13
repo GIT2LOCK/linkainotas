@@ -23,7 +23,7 @@ export type AriiaSessionData = {
 };
 
 const MAX_AGE_SECONDS = 60 * 60 * 24 * 30;
-const isDevServer = process.env.NODE_ENV === "development";
+const isDevServer = process.env["NODE_ENV"] === "development";
 
 const cookieOptions = {
   httpOnly: true,

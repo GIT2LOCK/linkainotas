@@ -2,6 +2,8 @@ import { createServerFn } from "@tanstack/react-start";
 
 import type { CommandResult, UploadedDocumentsResponse } from "../types/backend";
 
+type JsonValue = string | number | boolean | null | JsonValue[] | { [key: string]: JsonValue };
+
 interface BackendInvokeInput {
   action: string;
   payload: Record<string, unknown>;
@@ -51,7 +53,7 @@ export const invokePublishedBackend = createServerFn({ method: "POST" })
           : {},
     };
   })
-  .handler(async ({ data }): Promise<CommandResult<unknown>> => {
+  .handler(async ({ data }): Promise<CommandResult<JsonValue>> => {
     const service = serviceForAction(data.action);
 
     if (!service.url) {
@@ -77,7 +79,7 @@ export const invokePublishedBackend = createServerFn({ method: "POST" })
         };
       }
 
-      const result = (await response.json()) as CommandResult<unknown>;
+      const result = (await response.json()) as CommandResult<JsonValue>;
       return normalizeBridgeResult(result);
     } catch (error) {
       return {
@@ -136,7 +138,7 @@ export const uploadPublishedDocuments = createServerFn({ method: "POST" })
 
       for (const file of data.files) {
         const bytes = base64ToBytes(file.contentBase64);
-        const blob = new Blob([bytes], {
+        const blob = new Blob([bytes.buffer as ArrayBuffer], {
           type: file.type ?? "application/octet-stream",
         });
         formData.append("files", blob, file.name);
@@ -228,14 +230,14 @@ function base64ToBytes(value: string): Uint8Array {
   return bytes;
 }
 
-function normalizeBridgeResult(result: CommandResult<unknown>): CommandResult<unknown> {
+function normalizeBridgeResult(result: CommandResult<JsonValue>): CommandResult<JsonValue> {
   if (typeof result?.ok === "boolean") {
     return result;
   }
 
   return {
     ok: true,
-    data: result,
+    data: result as unknown as JsonValue,
     error: null,
   };
 }

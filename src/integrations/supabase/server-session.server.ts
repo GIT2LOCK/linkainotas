@@ -10,7 +10,7 @@ import { getCookies, setCookie } from "@tanstack/react-start/server";
 
 import type { Database } from "./types";
 
-const isDevServer = process.env.NODE_ENV === "development";
+const isDevServer = process.env["NODE_ENV"] === "development";
 
 const COOKIE_DEFAULTS: CookieOptions = {
   httpOnly: true,
