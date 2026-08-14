@@ -106,6 +106,7 @@ export function ProcessPdfsPage() {
   const [selectedPaths, setSelectedPaths] = useState<string[]>([]);
   const [selectedBrowserFiles, setSelectedBrowserFiles] = useState<File[]>([]);
   const [selectionError, setSelectionError] = useState<string | null>(null);
+  const [saveNotice, setSaveNotice] = useState<string | null>(null);
   const [persistedResponse, setPersistedResponse] = useState<ProcessingResponse | null>(null);
   const [options, setOptions] = useState<
     Omit<ProcessingOptions, "source" | "paths" | "downloadPath" | "downloadPathLabel">
@@ -181,6 +182,7 @@ export function ProcessPdfsPage() {
     }
 
     setSelectionError(null);
+    setSaveNotice(null);
 
     if (
       options.downloadPdfsLocally &&
