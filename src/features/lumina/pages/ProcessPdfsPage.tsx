@@ -31,6 +31,8 @@ import { useAsyncAction } from "../hooks/useAsyncAction";
 interface BrowserDirectoryHandle {
   name: string;
   getFileHandle: (name: string, options: { create: boolean }) => Promise<BrowserFileHandle>;
+  queryPermission?: (options: { mode: "read" | "readwrite" }) => Promise<PermissionState>;
+  requestPermission?: (options: { mode: "read" | "readwrite" }) => Promise<PermissionState>;
 }
 
 interface BrowserFileHandle {
