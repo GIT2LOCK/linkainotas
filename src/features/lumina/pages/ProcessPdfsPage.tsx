@@ -31,6 +31,8 @@ import { useAsyncAction } from "../hooks/useAsyncAction";
 interface BrowserDirectoryHandle {
   name: string;
   getFileHandle: (name: string, options: { create: boolean }) => Promise<BrowserFileHandle>;
+  queryPermission?: (options: { mode: "read" | "readwrite" }) => Promise<PermissionState>;
+  requestPermission?: (options: { mode: "read" | "readwrite" }) => Promise<PermissionState>;
 }
 
 interface BrowserFileHandle {
@@ -104,6 +106,7 @@ export function ProcessPdfsPage() {
   const [selectedPaths, setSelectedPaths] = useState<string[]>([]);
   const [selectedBrowserFiles, setSelectedBrowserFiles] = useState<File[]>([]);
   const [selectionError, setSelectionError] = useState<string | null>(null);
+  const [saveNotice, setSaveNotice] = useState<string | null>(null);
   const [persistedResponse, setPersistedResponse] = useState<ProcessingResponse | null>(null);
   const [options, setOptions] = useState<
     Omit<ProcessingOptions, "source" | "paths" | "downloadPath" | "downloadPathLabel">
@@ -179,6 +182,7 @@ export function ProcessPdfsPage() {
     }
 
     setSelectionError(null);
+    setSaveNotice(null);
 
     if (
       options.downloadPdfsLocally &&
@@ -205,7 +209,22 @@ export function ProcessPdfsPage() {
       });
       setPersistedResponse(result);
       try {
-        await saveExcelFilesForUser(result.excelFiles ?? [], browserDownloadDirectory);
+        const outcome = await saveExcelFilesForUser(
+          result.excelFiles ?? [],
+          browserDownloadDirectory,
+        );
+
+        if (outcome === "directory") {
+          setSaveNotice(
+            `Planilha salva na pasta escolhida${
+              browserDownloadDirectory ? `: ${browserDownloadDirectory.name}` : ""
+            }.`,
+          );
+        } else if (outcome === "download") {
+          setSaveNotice("Planilha baixada na pasta de downloads do navegador.");
+        } else {
+          setSaveNotice(null);
+        }
       } catch {
         setSelectionError(
           "O processamento terminou, mas não foi possível salvar o Excel na pasta escolhida.",
@@ -339,6 +358,7 @@ export function ProcessPdfsPage() {
 
       {action.error ? <div className="alert danger">{action.error}</div> : null}
       {selectionError ? <div className="alert danger">{selectionError}</div> : null}
+      {saveNotice ? <div className="alert">{saveNotice}</div> : null}
 
       <div className="process-workspace">
         <div className="workflow-primary">
@@ -567,21 +587,47 @@ export function ProcessPdfsPage() {
 async function saveExcelFilesForUser(
   files: DownloadableFile[],
   directory: BrowserDirectoryHandle | null,
-) {
+): Promise<"directory" | "download" | "none"> {
   if (files.length === 0) {
-    return;
+    return "none";
   }
 
-  if (directory) {
-    for (const file of files) {
-      const fileHandle = await directory.getFileHandle(file.name, { create: true });
-      const writable = await fileHandle.createWritable();
-      await writable.write(base64ToBlob(file.contentBase64, file.mimeType));
-      await writable.close();
+  if (directory && (await ensureDirectoryWriteAccess(directory))) {
+    try {
+      for (const file of files) {
+        const fileHandle = await directory.getFileHandle(file.name, { create: true });
+        const writable = await fileHandle.createWritable();
+        await writable.write(base64ToBlob(file.contentBase64, file.mimeType));
+        await writable.close();
+      }
+      return "directory";
+    } catch {
+      downloadFiles(files);
+      return "download";
     }
-    return;
   }
 
+  downloadFiles(files);
+  return "download";
+}
+
+async function ensureDirectoryWriteAccess(directory: BrowserDirectoryHandle): Promise<boolean> {
+  try {
+    const current = await directory.queryPermission?.({ mode: "readwrite" });
+
+    if (current === "granted") {
+      return true;
+    }
+
+    const requested = await directory.requestPermission?.({ mode: "readwrite" });
+
+    return requested === "granted" || (current === undefined && requested === undefined);
+  } catch {
+    return false;
+  }
+}
+
+function downloadFiles(files: DownloadableFile[]) {
   for (const file of files) {
     const url = URL.createObjectURL(base64ToBlob(file.contentBase64, file.mimeType));
     const anchor = document.createElement("a");
