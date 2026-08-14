@@ -569,21 +569,47 @@ export function ProcessPdfsPage() {
 async function saveExcelFilesForUser(
   files: DownloadableFile[],
   directory: BrowserDirectoryHandle | null,
-) {
+): Promise<"directory" | "download" | "none"> {
   if (files.length === 0) {
-    return;
+    return "none";
   }
 
-  if (directory) {
-    for (const file of files) {
-      const fileHandle = await directory.getFileHandle(file.name, { create: true });
-      const writable = await fileHandle.createWritable();
-      await writable.write(base64ToBlob(file.contentBase64, file.mimeType));
-      await writable.close();
+  if (directory && (await ensureDirectoryWriteAccess(directory))) {
+    try {
+      for (const file of files) {
+        const fileHandle = await directory.getFileHandle(file.name, { create: true });
+        const writable = await fileHandle.createWritable();
+        await writable.write(base64ToBlob(file.contentBase64, file.mimeType));
+        await writable.close();
+      }
+      return "directory";
+    } catch {
+      downloadFiles(files);
+      return "download";
     }
-    return;
   }
 
+  downloadFiles(files);
+  return "download";
+}
+
+async function ensureDirectoryWriteAccess(directory: BrowserDirectoryHandle): Promise<boolean> {
+  try {
+    const current = await directory.queryPermission?.({ mode: "readwrite" });
+
+    if (current === "granted") {
+      return true;
+    }
+
+    const requested = await directory.requestPermission?.({ mode: "readwrite" });
+
+    return requested === "granted" || (current === undefined && requested === undefined);
+  } catch {
+    return false;
+  }
+}
+
+function downloadFiles(files: DownloadableFile[]) {
   for (const file of files) {
     const url = URL.createObjectURL(base64ToBlob(file.contentBase64, file.mimeType));
     const anchor = document.createElement("a");
