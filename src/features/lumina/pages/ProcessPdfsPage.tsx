@@ -207,7 +207,22 @@ export function ProcessPdfsPage() {
       });
       setPersistedResponse(result);
       try {
-        await saveExcelFilesForUser(result.excelFiles ?? [], browserDownloadDirectory);
+        const outcome = await saveExcelFilesForUser(
+          result.excelFiles ?? [],
+          browserDownloadDirectory,
+        );
+
+        if (outcome === "directory") {
+          setSaveNotice(
+            `Planilha salva na pasta escolhida${
+              browserDownloadDirectory ? `: ${browserDownloadDirectory.name}` : ""
+            }.`,
+          );
+        } else if (outcome === "download") {
+          setSaveNotice("Planilha baixada na pasta de downloads do navegador.");
+        } else {
+          setSaveNotice(null);
+        }
       } catch {
         setSelectionError(
           "O processamento terminou, mas não foi possível salvar o Excel na pasta escolhida.",
