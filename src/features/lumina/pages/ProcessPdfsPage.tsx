@@ -358,6 +358,7 @@ export function ProcessPdfsPage() {
 
       {action.error ? <div className="alert danger">{action.error}</div> : null}
       {selectionError ? <div className="alert danger">{selectionError}</div> : null}
+      {saveNotice ? <div className="alert">{saveNotice}</div> : null}
 
       <div className="process-workspace">
         <div className="workflow-primary">
