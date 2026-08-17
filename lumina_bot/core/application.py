@@ -21,7 +21,7 @@ from lumina_bot.exceptions import (
 )
 
 SHELL_LAUNCHER_SUFFIXES = {".appref-ms", ".lnk", ".url"}
-LOGIN_CONTROL_IDS = frozenset({"txtLogin", "txtPassword", "btnOk"})
+LOGIN_CONTROL_IDS = frozenset({"txtLogin", "txtPassword"})
 
 
 class Application:
