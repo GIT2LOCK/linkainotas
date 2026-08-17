@@ -52,9 +52,17 @@ Essa API executa `/uploads/documents` e `/invoke` para acoes como:
 Configure no Lovable:
 
 ```env
-LINKAI_LUMINA_URL=https://sua-url-publica-do-executor-lumina
+LINKAI_LUMINA_URLS=http://escritorio.2lock.myddns.com:8766,http://escritorio.2lock.myddns.com:8767
 LINKAI_LUMINA_TOKEN=outro-token-longo-e-secreto
 ```
+
+Os executores sao tentados na ordem informada. Quando o primeiro responder que
+esta ocupado (`409`) ou indisponivel, a server function tenta o proximo. A
+variavel legada `LINKAI_LUMINA_URL` continua funcionando para uma unica maquina.
+
+Cada executor Windows deve usar a porta local `8766`. O roteador deve publicar
+portas externas diferentes, por exemplo `8766 -> maquina 01:8766` e
+`8767 -> maquina 02:8766`.
 
 Na maquina Windows com Lumina instalado:
 
@@ -65,6 +73,9 @@ $env:LINKAI_ALLOWED_ORIGINS="https://linkai.2lock.app.br"
 ```
 
 Essa URL e usada apenas para `lumina.start`.
+
+O endpoint `/health` informa `busy: true` quando existe uma sessao Lumina aberta.
+Para liberar o executor, encerre o Lumina na maquina correspondente.
 
 ## Compatibilidade
 

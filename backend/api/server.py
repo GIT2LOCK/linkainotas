@@ -98,6 +98,7 @@ def health() -> dict[str, Any]:
     """Return local API health status."""
     return {
         "status": "ok",
+        "busy": lumina_worker_busy(),
         "features": ["document-uploads", "construction-insights"],
     }
 
@@ -106,8 +107,39 @@ def health() -> dict[str, Any]:
 def invoke_backend(request: InvokeRequest, http_request: Request) -> dict[str, Any]:
     """Invoke backend services using the same command bridge used by Tauri."""
     require_action_token(http_request, request.action)
+
+    if request.action == "lumina.start" and lumina_worker_busy():
+        raise HTTPException(
+            status_code=status.HTTP_409_CONFLICT,
+            detail="Este executor Lumina ja esta atendendo outro usuario.",
+        )
+
     result = DesktopBridge().handle(request.action, request.payload)
+
+    if (
+        request.action == "lumina.start"
+        and isinstance(result.data, dict)
+        and result.data.get("status") == "busy"
+    ):
+        raise HTTPException(
+            status_code=status.HTTP_409_CONFLICT,
+            detail=str(result.data.get("message", "Executor Lumina ocupado.")),
+        )
+
     return result.to_dict()
+
+
+def lumina_worker_busy() -> bool:
+    """Read worker availability without importing desktop automation on Linux."""
+    if os.name != "nt":
+        return False
+
+    try:
+        from backend.automation import LuminaAutomationService
+
+        return LuminaAutomationService.is_busy()
+    except Exception:
+        return False
 
 
 @app.post("/uploads/documents", dependencies=[Depends(require_processing_token)])

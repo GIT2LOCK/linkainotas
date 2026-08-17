@@ -23,6 +23,7 @@ interface PublishedService {
   missingMessage: string;
   token: string | null;
   url: string | null;
+  urls: string[];
 }
 
 const LUMINA_ACTIONS = new Set(["lumina.start"]);
@@ -64,31 +65,44 @@ export const invokePublishedBackend = createServerFn({ method: "POST" })
       };
     }
 
-    try {
-      const response = await fetch(`${service.url}/invoke`, {
-        method: "POST",
-        headers: jsonHeaders(service.token),
-        body: JSON.stringify(data),
-      });
+    let lastError = "Nenhum executor disponivel no momento.";
 
-      if (!response.ok) {
-        return {
-          ok: false,
-          data: null,
-          error: `Servico respondeu com status ${response.status}.`,
-        };
+    for (const url of service.urls) {
+      try {
+        const response = await fetch(`${url}/invoke`, {
+          method: "POST",
+          headers: jsonHeaders(service.token),
+          body: JSON.stringify(data),
+        });
+
+        if (response.status === 409 || response.status === 503) {
+          lastError = "Executor ocupado ou indisponivel.";
+          continue;
+        }
+
+        if (!response.ok) {
+          return {
+            ok: false,
+            data: null,
+            error: `Servico respondeu com status ${response.status}.`,
+          };
+        }
+
+        const result = normalizeBridgeResult((await response.json()) as CommandResult<JsonValue>);
+
+        if (isBusyResult(result)) {
+          lastError = "Executor ocupado ou indisponivel.";
+          continue;
+        }
+
+        return result;
+      } catch (error) {
+        lastError =
+          error instanceof Error ? error.message : "Nao foi possivel acionar o servico publicado.";
       }
-
-      const result = (await response.json()) as CommandResult<JsonValue>;
-      return normalizeBridgeResult(result);
-    } catch (error) {
-      return {
-        ok: false,
-        data: null,
-        error:
-          error instanceof Error ? error.message : "Nao foi possivel acionar o servico publicado.",
-      };
     }
+
+    return { ok: false, data: null, error: lastError };
   });
 
 export const uploadPublishedDocuments = createServerFn({ method: "POST" })
@@ -180,27 +194,57 @@ function serviceForAction(action: string): PublishedService {
 }
 
 function processingService(): PublishedService {
+  const url =
+    env("LINKAI_PROCESSING_URL") ??
+    env("LINKAI_DOCUMENT_PROCESSING_URL") ??
+    env("LINKAI_API_URL") ??
+    env("LINKAI_BRIDGE_URL") ??
+    env("VITE_LINKAI_API_URL");
+
   return {
     missingMessage: PROCESSING_NOT_CONFIGURED,
     token:
       env("LINKAI_PROCESSING_TOKEN") ??
       env("LINKAI_DOCUMENT_PROCESSING_TOKEN") ??
       env("LINKAI_BRIDGE_TOKEN"),
-    url:
-      env("LINKAI_PROCESSING_URL") ??
-      env("LINKAI_DOCUMENT_PROCESSING_URL") ??
-      env("LINKAI_API_URL") ??
-      env("LINKAI_BRIDGE_URL") ??
-      env("VITE_LINKAI_API_URL"),
+    url,
+    urls: url ? [url] : [],
   };
 }
 
 function luminaService(): PublishedService {
+  const urls = uniqueUrls([
+    ...envList("LINKAI_LUMINA_URLS"),
+    env("LINKAI_LUMINA_URL"),
+    env("LINKAI_LUMINA_BRIDGE_URL"),
+    env("LINKAI_BRIDGE_URL"),
+  ]);
+
   return {
     missingMessage: LUMINA_NOT_CONFIGURED,
     token: env("LINKAI_LUMINA_TOKEN") ?? env("LINKAI_BRIDGE_TOKEN"),
-    url: env("LINKAI_LUMINA_URL") ?? env("LINKAI_LUMINA_BRIDGE_URL") ?? env("LINKAI_BRIDGE_URL"),
+    url: urls[0] ?? null,
+    urls,
   };
+}
+
+function envList(name: string): string[] {
+  return (process.env[name] ?? "")
+    .split(",")
+    .map((value) => value.trim().replace(/\/+$/, ""))
+    .filter(Boolean);
+}
+
+function uniqueUrls(values: Array<string | null>): string[] {
+  return [...new Set(values.filter((value): value is string => Boolean(value)))];
+}
+
+function isBusyResult(result: CommandResult<JsonValue>): boolean {
+  if (!result.data || typeof result.data !== "object" || Array.isArray(result.data)) {
+    return false;
+  }
+
+  return (result.data as { status?: unknown }).status === "busy";
 }
 
 function env(name: string): string | null {

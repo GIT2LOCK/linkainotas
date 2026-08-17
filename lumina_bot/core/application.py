@@ -180,6 +180,29 @@ class Application:
             return False
 
     @staticmethod
+    def has_lumina_window(config: AppConfig = DEFAULT_CONFIG) -> bool:
+        """Return True when a visible Lumina window is already in use."""
+        try:
+            desktop = Desktop(backend=config.backend)
+            for window in desktop.windows(visible_only=True):
+                title = (window.window_text() or "").lower()
+                class_name = (window.class_name() or "").lower()
+
+                if "chrome" in class_name or "msedge" in class_name or "code" in class_name:
+                    continue
+
+                if (
+                    title in {"form1", "startupform"}
+                    or "lumina" in title
+                    or Application._has_login_controls(window)
+                ):
+                    return True
+        except Exception:
+            return False
+
+        return False
+
+    @staticmethod
     def _validate_launcher_path(launcher_path: Path) -> None:
         if not launcher_path.is_file():
             raise ConfigurationError(
