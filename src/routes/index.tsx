@@ -220,7 +220,7 @@ function AuthScreen() {
               className="mt-2 animate-fade-in text-center text-sm text-glass-muted"
             >
               {isSignup
-                ? "Sua conta é criada no Ariia e sincronizada com o Linkai"
+                ? "Crie seu acesso ao ambiente corporativo Linkai"
                 : "Entre com sua conta corporativa"}
             </p>
 
@@ -286,8 +286,16 @@ function AuthScreen() {
         <div className="mt-6 flex items-start gap-2.5 rounded-xl border border-glass-border bg-glass px-4 py-3 backdrop-blur-xl">
           <ShieldCheck className="mt-0.5 h-4 w-4 shrink-0 text-brand" />
           <p className="text-xs leading-relaxed text-glass-muted">
-            O Linkai não armazena senhas. Sua identidade é validada pelo Ariia, o provedor de acesso
-            corporativo da Linka Engenharia.
+            Consulte nossa{" "}
+            <a
+              href="https://2lock.com.br/politica-de-privacidade/"
+              target="_blank"
+              rel="noreferrer"
+              className="font-medium text-brand underline decoration-brand/50 underline-offset-2 transition-colors hover:text-brand-foreground"
+            >
+              Política de Privacidade
+            </a>{" "}
+            para saber como seus dados são tratados, protegidos e utilizados.
           </p>
         </div>
       </section>
