@@ -21,6 +21,7 @@ from lumina_bot.exceptions import (
 )
 
 SHELL_LAUNCHER_SUFFIXES = {".appref-ms", ".lnk", ".url"}
+LOGIN_CONTROL_IDS = frozenset({"txtLogin", "txtPassword", "btnOk"})
 
 
 class Application:
@@ -122,18 +123,18 @@ class Application:
                     if "chrome" in class_name.lower() or "msedge" in class_name.lower() or "code" in class_name.lower():
                         continue
 
-                    is_match = False
+                    is_process_window = bool(target_pid and pid == target_pid)
+                    is_named_lumina_window = "lumina" in title.lower()
+                    is_login_window = self._has_login_controls(win)
 
                     # 2. PROCURAR PELO TÃTULO OCULTO DO LUMINA ('Form1')
-                    if title == "Form1":
-                        is_match = True
-                    # 3. Fallbacks
-                    elif target_pid and pid == target_pid:
-                        is_match = True
-                    elif "lumina" in title.lower():
-                        is_match = True
-
-                    if not is_match:
+                    if not is_login_window:
+                        if is_process_window or is_named_lumina_window:
+                            self._logger.debug(
+                                "Ignoring Lumina bootstrap window '%s' while "
+                                "waiting for login controls...",
+                                title,
+                            )
                         continue
 
                     print("=" * 80)
@@ -165,6 +166,18 @@ class Application:
         raise WindowNotFound(
             "NÃ£o foi possÃ­vel localizar a janela do Lumina."
         )
+
+    @staticmethod
+    def _has_login_controls(window: Any) -> bool:
+        """Return True when a visible window exposes the Lumina login form."""
+        try:
+            control_ids = {
+                str(getattr(control.element_info, "automation_id", "") or "")
+                for control in window.descendants()
+            }
+            return LOGIN_CONTROL_IDS.issubset(control_ids)
+        except Exception:
+            return False
 
     @staticmethod
     def _validate_launcher_path(launcher_path: Path) -> None:

@@ -39,7 +39,13 @@ class TextBox(BaseControl):
             self.wait_ready(timeout=timeout)
             wrapper = self._wrapper()
             wrapper.set_focus()
-            cast(_EditableControl, wrapper).set_edit_text(value)
+            setter = getattr(wrapper, "set_edit_text", None)
+            if callable(setter):
+                setter(value)
+            else:
+                wrapper.click_input()
+                wrapper.type_keys("^a")
+                wrapper.type_keys(value, with_spaces=True)
             wait_for_interval(self._config.wait_after_set_text)
         except LuminaBotError:
             self._capture_on_error("set_text")

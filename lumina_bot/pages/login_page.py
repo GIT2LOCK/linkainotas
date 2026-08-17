@@ -18,9 +18,21 @@ class LoginPage(BasePage):
         self.senha = TextBox(window, "txtPassword")
         self.base = ComboBox(window, "ComboBoxEditDatabase")
         self.idioma = ComboBox(window, "ComboBoxEditLanguages")
-        self.ok = Button(window, "btnOk")
-        self.cancelar = Button(window, "btnCancel")
-        self.conexao = Button(window, "btnConnection")
+        self.ok = Button(
+            window,
+            "btnOk",
+            fallback_names=("Ok", "OK", "Entrar", "Login", "Confirmar"),
+        )
+        self.cancelar = Button(
+            window,
+            "btnCancel",
+            fallback_names=("Cancelar", "Cancel"),
+        )
+        self.conexao = Button(
+            window,
+            "btnConnection",
+            fallback_names=("Conexão", "Conexao", "Conectar"),
+        )
 
     def login(self, usuario: str, senha: str) -> None:
         """Fill credentials and submit the login form."""
