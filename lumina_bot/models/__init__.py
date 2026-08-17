@@ -8,6 +8,8 @@ from lumina_bot.models.item import Item
 from lumina_bot.models.nota import Nota, NotaFiscal
 from lumina_bot.models.tomador import Tomador
 from lumina_bot.models.tributos import Tributos
+from lumina_bot.models.parcela import Parcela
+from lumina_bot.models.validation import ValidationResult
 
 __all__ = [
     "Emitente",
@@ -17,4 +19,6 @@ __all__ = [
     "NotaFiscal",
     "Tomador",
     "Tributos",
+    "Parcela",
+    "ValidationResult",
 ]

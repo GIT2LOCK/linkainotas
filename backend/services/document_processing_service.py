@@ -17,6 +17,7 @@ from lumina_bot.core.parser_manager import ParserManager
 from lumina_bot.core.pdf_reader import PdfReader
 from lumina_bot.core.processor import Processor
 from lumina_bot.core.storage import StorageService
+from lumina_bot.core.xml_writer import XmlWriter
 from lumina_bot.models.nota import NotaFiscal
 
 from backend.models.ui import ProcessingOptions
@@ -32,6 +33,8 @@ class DocumentProcessingService:
         self._pdf_reader = PdfReader()
         self._parser_manager = ParserManager()
         self._registry = ProcessingUiRegistry()
+        self._xml_writer = XmlWriter()
+        self._xml_output_dir = PROJECT_ROOT / "output" / "xml"
         self._logger = get_logger(self.__class__.__name__)
 
     def process(self, options: ProcessingOptions) -> dict[str, Any]:
@@ -66,14 +69,31 @@ class DocumentProcessingService:
     ) -> dict[str, Any]:
         started = time.perf_counter()
         config = replace(get_supabase_config(), pdf_download_path=download_dir)
-        output_dir = PROJECT_ROOT / "output" / "excel"
-        previous_exports = self._excel_export_state(output_dir)
-        summary = Processor(config=config).run()
+        excel_output_dir = PROJECT_ROOT / "output" / "excel"
+        previous_excel_exports = self._export_state(excel_output_dir, "*.xlsx")
+        previous_xml_exports = self._export_state(self._xml_output_dir, "*.xml")
+        processor = Processor(config=config)
+        summary = processor.run(
+            generate_excel=options.generate_excel,
+            excel_mode=options.excel_mode,
+        )
         elapsed = time.perf_counter() - started
-        excel_files = self._excel_exports(output_dir, previous_exports)
+        excel_files = self._file_exports(
+            excel_output_dir,
+            previous_excel_exports,
+            "*.xlsx",
+            "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+        )
+        xml_files = self._file_exports(
+            self._xml_output_dir,
+            previous_xml_exports,
+            "*.xml",
+            "application/xml",
+        )
         response = {
             "source": "supabase",
             "rows": [],
+            "xmlFiles": xml_files,
             "excelFiles": excel_files,
             "summary": {
                 "listed": summary.listed,
@@ -115,6 +135,7 @@ class DocumentProcessingService:
         file_records: list[dict[str, Any]] = []
         failed = 0
         duplicated = 0
+        previous_xml_exports = self._export_state(self._xml_output_dir, "*.xml")
 
         for source_path in pdf_paths:
             source_hash = self._safe_sha256(source_path)
@@ -170,14 +191,19 @@ class DocumentProcessingService:
                 )
                 nota.status_processamento = "success"
                 nota.caminho_local = str(working_path)
-                nota.caminho_xml_local = str(xml_working_path) if xml_working_path else None
+                generated_xml_path = self._xml_writer.write(
+                    nota,
+                    self._xml_output_dir,
+                    source_format="pdf",
+                )
+                nota.caminho_xml_local = str(generated_xml_path)
                 notas.append(nota)
 
                 row = self._row_from_nota(nota, options.source, "success", "PDF")
                 row["originPath"] = str(source_path)
                 row["path"] = str(working_path)
                 row["downloadedPath"] = str(working_path) if options.download_pdfs_locally else None
-                row["xmlPath"] = str(xml_working_path) if xml_working_path else None
+                row["xmlPath"] = str(generated_xml_path)
                 row["downloaded"] = options.download_pdfs_locally and downloaded
                 rows.append(row)
                 file_records.append(
@@ -191,11 +217,14 @@ class DocumentProcessingService:
                             row,
                         )
                     )
+                file_records.append(
+                    self._xml_file_record(source_path, generated_xml_path, row)
+                )
                 self._logger.info(
                     "PDF processed: %s | hash=%s | xml=%s | destination=%s",
                     source_path,
                     row.get("hash"),
-                    xml_working_path,
+                    generated_xml_path,
                     working_path,
                 )
             except Exception as exc:
@@ -264,18 +293,30 @@ class DocumentProcessingService:
                 )
                 self._logger.exception("XML failed and will be skipped: %s", source_path)
 
+        xml_files = self._file_exports(
+            self._xml_output_dir,
+            previous_xml_exports,
+            "*.xml",
+            "application/xml",
+        )
         excel_files: list[dict[str, str]] = []
         if options.generate_excel and notas:
             output_dir = PROJECT_ROOT / "output" / "excel"
-            previous_exports = self._excel_export_state(output_dir)
+            previous_exports = self._export_state(output_dir, "*.xlsx")
             writer = ExcelWriter(output_dir / "notas.xlsx")
             writer.write(notas, mode=options.excel_mode)
-            excel_files = self._excel_exports(output_dir, previous_exports)
+            excel_files = self._file_exports(
+                output_dir,
+                previous_exports,
+                "*.xlsx",
+                "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+            )
 
         elapsed = time.perf_counter() - started
         response = {
             "source": options.source,
             "rows": rows,
+            "xmlFiles": xml_files,
             "excelFiles": excel_files,
             "summary": {
                 "listed": len(document_paths),
@@ -295,13 +336,13 @@ class DocumentProcessingService:
         )
 
     @staticmethod
-    def _excel_export_state(output_dir: Path) -> dict[Path, int]:
-        """Capture existing Excel files before a processing run."""
+    def _export_state(output_dir: Path, pattern: str) -> dict[Path, int]:
+        """Capture existing generated files before a processing run."""
         if not output_dir.is_dir():
             return {}
 
         state: dict[Path, int] = {}
-        for path in output_dir.glob("*.xlsx"):
+        for path in output_dir.glob(pattern):
             try:
                 state[path] = path.stat().st_mtime_ns
             except OSError:
@@ -310,16 +351,18 @@ class DocumentProcessingService:
         return state
 
     @staticmethod
-    def _excel_exports(
+    def _file_exports(
         output_dir: Path,
         previous_exports: dict[Path, int],
+        pattern: str,
+        mime_type: str,
     ) -> list[dict[str, str]]:
-        """Return newly created or updated workbooks for browser download."""
+        """Return newly created or updated generated files for browser download."""
         if not output_dir.is_dir():
             return []
 
         exports: list[dict[str, str]] = []
-        for path in sorted(output_dir.glob("*.xlsx")):
+        for path in sorted(output_dir.glob(pattern)):
             try:
                 if previous_exports.get(path) == path.stat().st_mtime_ns:
                     continue
@@ -328,7 +371,7 @@ class DocumentProcessingService:
                     {
                         "name": path.name,
                         "contentBase64": base64.b64encode(path.read_bytes()).decode("ascii"),
-                        "mimeType": "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+                        "mimeType": mime_type,
                     }
                 )
             except OSError:

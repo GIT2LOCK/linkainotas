@@ -17,7 +17,15 @@ class Item:
     unidade: str | None = None
     quantidade: float | None = None
     valor_unitario: float | None = None
+    valor_desconto: float | None = None
     valor_total: float | None = None
+    cst: str | None = None
+    base_calculo_icms: float | None = None
+    valor_icms: float | None = None
+    valor_ipi: float | None = None
+    aliquota_icms: float | None = None
+    aliquota_ipi: float | None = None
+    valor_total_tributos: float | None = None
     outros_campos: dict[str, Any] | None = None
 
     def to_dict(self) -> dict[str, Any]:

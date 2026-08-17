@@ -99,6 +99,11 @@ class BaseParser(ABC):
             producer_pdf=context.pdf.producer,
             metadados_pdf=context.pdf.metadata,
         )
+        nota.outros_campos["pdf_extracao"] = {
+            "paginas": context.pdf.page_count,
+            "palavras_com_bbox": len(context.pdf.words),
+            "camada_textual_disponivel": not context.pdf.ocr_required,
+        }
 
         self._apply_common_fields(nota, context.text)
 

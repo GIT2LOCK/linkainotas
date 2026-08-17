@@ -21,6 +21,11 @@ class Tributos:
     base_calculo: float | None = None
     aliquota: float | None = None
     valor_aproximado: float | None = None
+    icms: float | None = None
+    ipi: float | None = None
+    pis_cofins: float | None = None
+    ibs: float | None = None
+    cbs: float | None = None
     outros: dict[str, Any] = field(default_factory=dict)
 
     def to_dict(self) -> dict[str, Any]:

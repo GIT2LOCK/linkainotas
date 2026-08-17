@@ -10,6 +10,8 @@ from lumina_bot.models.emitente import Emitente
 from lumina_bot.models.item import Item
 from lumina_bot.models.tomador import Tomador
 from lumina_bot.models.tributos import Tributos
+from lumina_bot.models.parcela import Parcela
+from lumina_bot.models.validation import ValidationResult
 
 
 @dataclass(slots=True)
@@ -17,6 +19,7 @@ class NotaFiscal:
     """Normalized representation of a fiscal document."""
 
     tipo_documento: str | None = None
+    layout: str | None = None
     parser: str | None = None
     arquivo: str | None = None
     caminho_remoto: str | None = None
@@ -54,6 +57,8 @@ class NotaFiscal:
     valor_total: float | None = None
     tributos: Tributos = field(default_factory=Tributos)
     itens: list[Item] = field(default_factory=list)
+    parcelas: list[Parcela] = field(default_factory=list)
+    validacoes: list[ValidationResult] = field(default_factory=list)
 
     autor_pdf: str | None = None
     criador_pdf: str | None = None
@@ -72,6 +77,7 @@ class NotaFiscal:
         """Return a single-row representation for Excel output."""
         row: dict[str, Any] = {
             "tipo_documento": self.tipo_documento,
+            "layout": self.layout,
             "parser": self.parser,
             "arquivo": self.arquivo,
             "caminho_remoto": self.caminho_remoto,
@@ -111,6 +117,8 @@ class NotaFiscal:
         row.update(self._prefixed_dict("tomador", self.tomador.to_dict()))
         row.update(self._prefixed_dict("tributos", self.tributos.to_dict()))
         row["itens_quantidade"] = len(self.itens)
+        row["parcelas_quantidade"] = len(self.parcelas)
+        row["validacoes_quantidade"] = len(self.validacoes)
         row["itens_json"] = self._json([item.to_dict() for item in self.itens])
         row["metadados_pdf_json"] = self._json(self.metadados_pdf)
         row["outros_campos_json"] = self._json(self.outros_campos)

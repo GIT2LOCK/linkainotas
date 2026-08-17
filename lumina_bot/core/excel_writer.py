@@ -116,7 +116,76 @@ class ExcelWriter:
             self.write_one_file_per_pdf(rows)
             return
 
-        self.write_single_sheet(rows)
+        self.write_structured(rows)
+
+    def write_structured(self, notas: Iterable[NotaFiscal]) -> None:
+        """Write the canonical workbook tabs without flattening child records."""
+        rows = list(notas)
+        if not rows:
+            return
+
+        documents = [self._summary_row(nota) | {
+            "Layout": nota.layout,
+            "Parcelas": len(nota.parcelas),
+            "Validações": len(nota.validacoes),
+        } for nota in rows]
+        items: list[dict[str, Any]] = []
+        installments: list[dict[str, Any]] = []
+        taxes: list[dict[str, Any]] = []
+        validations: list[dict[str, Any]] = []
+
+        for nota in rows:
+            identity = {
+                "Arquivo": nota.arquivo,
+                "Tipo Documento": nota.tipo_documento,
+                "Layout": nota.layout,
+                "Número": nota.numero,
+                "Chave": nota.chave,
+            }
+            for item_index, item in enumerate(nota.itens, start=1):
+                items.append(identity | {"Item": item_index} | item.to_dict())
+            for parcela in nota.parcelas:
+                installments.append(identity | parcela.to_dict())
+            for name, value in nota.tributos.to_dict().items():
+                if isinstance(value, dict):
+                    for child_name, child_value in value.items():
+                        taxes.append(identity | {"Tributo": f"{name}.{child_name}", "Valor": child_value})
+                else:
+                    taxes.append(identity | {"Tributo": name, "Valor": value})
+            for validation in nota.validacoes:
+                validations.append(identity | validation.to_dict())
+
+        frames = {
+            "documentos": pd.DataFrame(documents),
+            "itens": pd.DataFrame(items, columns=[
+                "Arquivo", "Tipo Documento", "Layout", "Número", "Chave", "Item",
+                "codigo", "descricao", "ncm", "cfop", "unidade", "quantidade",
+                "valor_unitario", "valor_desconto", "valor_total", "cst",
+                "base_calculo_icms", "valor_icms", "valor_ipi", "aliquota_icms",
+                "aliquota_ipi", "valor_total_tributos", "outros_campos",
+            ]),
+            "parcelas": pd.DataFrame(installments, columns=[
+                "Arquivo", "Tipo Documento", "Layout", "Número", "Chave",
+                "numero", "vencimento", "valor", "raw", "pagina",
+            ]),
+            "tributos": pd.DataFrame(taxes, columns=[
+                "Arquivo", "Tipo Documento", "Layout", "Número", "Chave", "Tributo", "Valor",
+            ]),
+            "validacoes": pd.DataFrame(validations, columns=[
+                "Arquivo", "Tipo Documento", "Layout", "Número", "Chave", "regra", "status",
+                "valor_extraido", "valor_calculado", "mensagem",
+            ]),
+        }
+        self._write_frames(frames)
+
+    def _write_frames(self, frames: dict[str, pd.DataFrame], output_path: Path | None = None) -> None:
+        path = output_path or self._output_path
+        path.parent.mkdir(parents=True, exist_ok=True)
+        with pd.ExcelWriter(path, engine="openpyxl") as writer:
+            for sheet_name, frame in frames.items():
+                frame.to_excel(writer, index=False, sheet_name=sheet_name)
+        self._format_workbook(path)
+        self._logger.info("Structured Excel updated: %s | sheets=%s", path, len(frames))
 
     def write_single_sheet(self, notas: Iterable[NotaFiscal]) -> None:
         """Append all documents to a single sheet."""
@@ -197,17 +266,8 @@ class ExcelWriter:
             file_name = self._safe_file_name(self._default_sheet_name(nota)) + ".xlsx"
             file_path = self._unique_file_path(output_dir / file_name)
 
-            with pd.ExcelWriter(file_path, engine="openpyxl") as writer:
-                pd.DataFrame(
-                    [self._summary_row(nota)],
-                    columns=self.SUMMARY_COLUMNS,
-                ).to_excel(
-                    writer,
-                    index=False,
-                    sheet_name="nota",
-                )
-
-            self._format_workbook(file_path)
+            temporary_writer = ExcelWriter(file_path)
+            temporary_writer.write_structured([nota])
 
         self._logger.info("One-file-per-PDF Excel export completed: %s", output_dir)
 
