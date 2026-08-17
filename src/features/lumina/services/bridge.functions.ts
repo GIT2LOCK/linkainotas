@@ -69,7 +69,7 @@ export const invokePublishedBackend = createServerFn({ method: "POST" })
 
     for (const url of service.urls) {
       try {
-        const response = await fetch(`${url}/invoke`, {
+        const response = await fetchWithTimeout(`${url}/invoke`, {
           method: "POST",
           headers: jsonHeaders(service.token),
           body: JSON.stringify(data),
@@ -245,6 +245,21 @@ function isBusyResult(result: CommandResult<JsonValue>): boolean {
   }
 
   return (result.data as { status?: unknown }).status === "busy";
+}
+
+async function fetchWithTimeout(
+  input: string,
+  init: RequestInit,
+  timeoutMs = 5000,
+): Promise<Response> {
+  const controller = new AbortController();
+  const timeoutId = setTimeout(() => controller.abort(), timeoutMs);
+
+  try {
+    return await fetch(input, { ...init, signal: controller.signal });
+  } finally {
+    clearTimeout(timeoutId);
+  }
 }
 
 function env(name: string): string | null {
