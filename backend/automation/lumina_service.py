@@ -9,6 +9,8 @@ from lumina_bot.core.application import Application
 from lumina_bot.core.logger import configure_logging, get_logger
 from lumina_bot.core.waits import wait_for_interval
 from lumina_bot.pages.login_page import LoginPage
+from lumina_bot.pages.main_tile_page import MainTilePage
+from lumina_bot.pages.pedido_page import PedidoPage
 
 
 class LuminaAutomationService:
@@ -56,5 +58,13 @@ class LuminaAutomationService:
         login_page = LoginPage(main_window)
         login_page.login(credentials.username, credentials.password)
 
-        self._logger.info("Lumina login submitted from desktop action.")
-        return {"status": "started", "message": "Lumina login submitted"}
+        pedido_window = MainTilePage(main_window).abrir_lista_pedidos()
+        pedido_page = PedidoPage(pedido_window)
+        pedido_page.selecionar_consulta_completa()
+        pedido_page.confirmar()
+
+        self._logger.info("Lumina order list opened with complete query.")
+        return {
+            "status": "started",
+            "message": "Lista de pedidos aberta com consulta completa",
+        }

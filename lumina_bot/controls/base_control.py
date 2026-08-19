@@ -22,29 +22,37 @@ from lumina_bot.utils.screenshots import ScreenshotManager
 
 @dataclass(frozen=True, slots=True)
 class ControlLocator:
-    """Stable UI Automation locator based on AutomationId and ControlType."""
+    """Stable UI Automation locator based on id/name and ControlType."""
 
-    auto_id: str
     control_type: str
+    auto_id: str = ""
+    name: str = ""
     fallback_names: tuple[str, ...] = ()
 
     def as_kwargs(self) -> dict[str, str]:
         """Return pywinauto child_window criteria."""
-        return {
-            "auto_id": self.auto_id,
-            "control_type": self.control_type,
-        }
+        criteria = {"control_type": self.control_type}
+        if self.auto_id:
+            criteria["auto_id"] = self.auto_id
+        if self.name:
+            criteria["title"] = self.name
+        return criteria
 
     def fallback_kwargs(self) -> tuple[dict[str, str], ...]:
         """Return progressively broader criteria for vendor-specific controls."""
-        criteria: list[dict[str, str]] = [{"auto_id": self.auto_id}]
+        criteria: list[dict[str, str]] = [self.as_kwargs()]
+        if self.auto_id:
+            criteria.append({"auto_id": self.auto_id})
+        if self.name:
+            criteria.append({"title": self.name})
         criteria.extend({"title": name} for name in self.fallback_names)
         return tuple(criteria)
 
     @property
     def description(self) -> str:
         """Return a log-friendly locator description."""
-        return f"{self.auto_id} ({self.control_type})"
+        identifier = self.auto_id or self.name or "unnamed"
+        return f"{identifier} ({self.control_type})"
 
 
 class BaseControl:
@@ -58,6 +66,7 @@ class BaseControl:
         auto_id: str,
         config: AppConfig = DEFAULT_CONFIG,
         *,
+        name: str = "",
         fallback_names: tuple[str, ...] = (),
     ) -> None:
         self._window = window
@@ -65,6 +74,7 @@ class BaseControl:
         self.locator = ControlLocator(
             auto_id=auto_id,
             control_type=self.control_type,
+            name=name,
             fallback_names=fallback_names,
         )
         self._logger = get_logger(f"controls.{self.__class__.__name__}")
@@ -205,7 +215,19 @@ class BaseControl:
         for candidate in descendants:
             info = getattr(candidate, "element_info", None)
             candidate_id = str(getattr(info, "automation_id", "") or "")
-            if candidate_id == self.locator.auto_id:
+            candidate_name = str(getattr(info, "name", "") or "")
+            try:
+                candidate_title = str(candidate.window_text() or "")
+            except Exception:
+                candidate_title = ""
+
+            id_matches = not self.locator.auto_id or candidate_id == self.locator.auto_id
+            name_matches = (
+                not self.locator.name
+                or candidate_name == self.locator.name
+                or candidate_title == self.locator.name
+            )
+            if id_matches and name_matches:
                 matches.append(candidate)
 
         if not matches:
