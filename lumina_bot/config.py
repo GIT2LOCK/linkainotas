@@ -102,6 +102,7 @@ class AppConfig:
     post_login_timeout: float = 60.0
     retry_interval: float = 0.3
     max_retries: int = 3
+    action_delay: float = 3.0
     wait_after_click: float = 0.2
     wait_after_set_text: float = 0.1
     screenshot_on_error: bool = False
@@ -141,6 +142,7 @@ class AppConfig:
             ),
             retry_interval=_get_float("LUMINA_RETRY_INTERVAL", 0.3),
             max_retries=_get_int("LUMINA_MAX_RETRIES", Config.MAX_RETRIES),
+            action_delay=_get_float("LUMINA_ACTION_DELAY", 3.0),
             wait_after_click=_get_float(
                 "LUMINA_WAIT_AFTER_CLICK",
                 Config.POST_CLICK_DELAY,

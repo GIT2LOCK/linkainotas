@@ -94,6 +94,12 @@ class FastEntry(BaseControl):
 
         try:
             self.wait_ready(timeout=timeout)
+            self._logger.info(
+                "%s is ready; waiting %.1f seconds before typing...",
+                self.locator.description,
+                self._config.action_delay,
+            )
+            wait_for_interval(self._config.action_delay)
             wrapper = self._wrapper()
             double_click = getattr(wrapper, "double_click_input", None)
             if callable(double_click):

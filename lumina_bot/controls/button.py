@@ -24,7 +24,15 @@ class Button(BaseControl):
         self._logger.info("Clicking %s...", self.locator.description)
 
         try:
-            self.click(timeout=timeout)
+            self.wait_ready(timeout=timeout)
+            self._logger.info(
+                "%s is ready; waiting %.1f seconds before clicking...",
+                self.locator.description,
+                self._config.action_delay,
+            )
+            wait_for_interval(self._config.action_delay)
+            self._wrapper().click_input()
+            wait_for_interval(self._config.wait_after_click)
 
             # Some DevExpress SimpleButton wrappers accept the mouse event but
             # do not execute the command. If the same button is still present,
