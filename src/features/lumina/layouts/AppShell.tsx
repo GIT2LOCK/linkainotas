@@ -5,6 +5,7 @@ import linkaiLogoDarkUrl from "../assets/linkai-logo.png";
 import linkaiLogoLightUrl from "../assets/linkai-logo-light.png";
 import type { LuminaSessionUser } from "../LuminaApp";
 import type { NavigationItem, PageKey } from "../types/navigation";
+import { getRoleLabel } from "@/lib/auth/permissions";
 
 interface AppShellProps {
   activePage: PageKey;
@@ -22,8 +23,8 @@ const navigationGroupOrder = ["Operação", "Dados", "Sistema"] as const;
 export function AppShell({ activePage, children, navigation, onNavigate, user }: AppShellProps) {
   const [theme, setTheme] = useState<LuminaTheme>("dark");
   const [searchQuery, setSearchQuery] = useState("");
-  const activeLabel = navigation.find((item) => item.key === activePage)?.label ?? "Processar PDFs";
-  const role = user.permissao ?? "LinkAI Web";
+  const activeLabel = navigation.find((item) => item.key === activePage)?.label ?? "Início";
+  const role = getRoleLabel(user.permissao);
   const initials = user.nome
     .split(/\s+/)
     .filter(Boolean)

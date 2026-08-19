@@ -14,6 +14,7 @@ import {
 
 import { AppShell } from "./layouts/AppShell";
 import type { NavigationItem, PageKey } from "./types/navigation";
+import { canAccessNavigation, getAccessRole } from "@/lib/auth/permissions";
 import "./styles/global.css";
 
 const HomePage = lazy(() =>
@@ -53,20 +54,40 @@ export interface LuminaSessionUser {
 }
 
 const navigation: NavigationItem[] = [
-  { group: "Operação", key: "home", label: "Início", icon: House },
-  { group: "Operação", key: "processar-pdfs", label: "Processar PDFs", icon: FileArchive },
-  { group: "Operação", key: "lancar-notas", label: "Lançar Notas", icon: Play },
-  { group: "Operação", key: "ia", label: "Inteligência Artificial", icon: Bot },
-  { group: "Dados", key: "planilhas", label: "Planilhas", icon: FileSpreadsheet },
-  { group: "Dados", key: "supabase", label: "Nuvem", icon: Cloud },
-  { group: "Dados", key: "arquivos", label: "Arquivos", icon: Files },
-  { group: "Sistema", key: "historico", label: "Histórico", icon: ScrollText },
-  { group: "Sistema", key: "logs", label: "Logs", icon: LineChart },
-  { group: "Sistema", key: "configuracoes", label: "Configurações", icon: Settings },
+  { group: "Operação", key: "home", label: "Início", icon: House, access: "common" },
+  {
+    group: "Operação",
+    key: "processar-pdfs",
+    label: "Processar PDFs",
+    icon: FileArchive,
+    access: "common",
+  },
+  { group: "Operação", key: "lancar-notas", label: "Lançar Notas", icon: Play, access: "common" },
+  { group: "Operação", key: "ia", label: "Inteligência Artificial", icon: Bot, access: "common" },
+  { group: "Dados", key: "planilhas", label: "Planilhas", icon: FileSpreadsheet, access: "common" },
+  { group: "Dados", key: "supabase", label: "Nuvem", icon: Cloud, access: "common" },
+  { group: "Dados", key: "arquivos", label: "Arquivos", icon: Files, access: "common" },
+  { group: "Sistema", key: "historico", label: "Histórico", icon: ScrollText, access: "common" },
+  { group: "Sistema", key: "logs", label: "Logs", icon: LineChart, access: "admin" },
+  {
+    group: "Sistema",
+    key: "configuracoes",
+    label: "Configurações",
+    icon: Settings,
+    access: "common",
+  },
 ];
 
 export function LuminaApp({ user }: { user: LuminaSessionUser }) {
-  const [activePage, setActivePage] = useState<PageKey>("home");
+  const [selectedPage, setSelectedPage] = useState<PageKey>("home");
+  const accessRole = getAccessRole(user.permissao);
+  const availableNavigation = useMemo(
+    () => navigation.filter((item) => canAccessNavigation(item.access, accessRole)),
+    [accessRole],
+  );
+  const activePage = availableNavigation.some((item) => item.key === selectedPage)
+    ? selectedPage
+    : "home";
 
   const page = useMemo(() => {
     switch (activePage) {
@@ -98,8 +119,12 @@ export function LuminaApp({ user }: { user: LuminaSessionUser }) {
   return (
     <AppShell
       activePage={activePage}
-      navigation={navigation}
-      onNavigate={setActivePage}
+      navigation={availableNavigation}
+      onNavigate={(pageKey) => {
+        if (availableNavigation.some((item) => item.key === pageKey)) {
+          setSelectedPage(pageKey);
+        }
+      }}
       user={user}
     >
       <Suspense fallback={<div className="loading-panel">Carregando...</div>}>{page}</Suspense>

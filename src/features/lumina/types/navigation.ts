@@ -1,4 +1,5 @@
 import type { LucideIcon } from "lucide-react";
+import type { NavigationAccess } from "@/lib/auth/permissions";
 
 export type PageKey =
   | "home"
@@ -17,4 +18,5 @@ export interface NavigationItem {
   key: PageKey;
   label: string;
   icon: LucideIcon;
+  access?: NavigationAccess;
 }
