@@ -14,27 +14,23 @@ class Button(BaseControl):
 
     control_type: ClassVar[str] = "Button"
 
-    def click(self, timeout: float | None = None) -> None:
-        """Click the button physically, then use InvokePattern if needed."""
+    def click_with_invoke_fallback(self, timeout: float | None = None) -> None:
+        """Click physically and invoke only if the same button remains.
+
+        This is reserved for dialogs such as ``Pedido``. The login button
+        keeps the base physical-click behavior because its window can remain
+        briefly while Lumina transitions to the authenticated screen.
+        """
         self._logger.info("Clicking %s...", self.locator.description)
 
         try:
-            self.wait_ready(timeout=timeout)
-            wrapper = self._wrapper()
-            set_focus = getattr(wrapper, "set_focus", None)
-            if callable(set_focus):
-                set_focus()
-
-            click_input = getattr(wrapper, "click_input", None)
-            if not callable(click_input):
-                raise ElementInteractionError(f"Physical click is unavailable for {self}.")
-            click_input()
-            wait_for_interval(self._config.wait_after_click)
+            self.click(timeout=timeout)
 
             # Some DevExpress SimpleButton wrappers accept the mouse event but
             # do not execute the command. If the same button is still present,
             # retry through its UI Automation InvokePattern.
             if self._resolve_wrapper() is not None:
+                wrapper = self._wrapper()
                 invoke = getattr(wrapper, "invoke", None)
                 if callable(invoke):
                     self._logger.info(
@@ -44,8 +40,10 @@ class Button(BaseControl):
                     invoke()
                     wait_for_interval(self._config.wait_after_click)
         except LuminaBotError:
-            self._capture_on_error("click")
+            self._capture_on_error("click_with_invoke_fallback")
             raise
         except Exception as exc:
-            self._capture_on_error("click")
-            raise ElementInteractionError(f"Could not click {self}.") from exc
+            self._capture_on_error("click_with_invoke_fallback")
+            raise ElementInteractionError(
+                f"Could not click {self} with fallback."
+            ) from exc

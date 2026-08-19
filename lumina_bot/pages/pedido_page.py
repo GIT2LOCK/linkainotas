@@ -22,4 +22,4 @@ class PedidoPage(BasePage):
 
     def confirmar(self) -> None:
         """Confirm the selected order-list query."""
-        self.ok.click()
+        self.ok.click_with_invoke_fallback()
