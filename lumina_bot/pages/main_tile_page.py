@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+from pywinauto import Desktop
 from pywinauto.application import WindowSpecification
 
 from lumina_bot.config import AppConfig, DEFAULT_CONFIG
@@ -26,10 +27,7 @@ class MainTilePage(BasePage):
         load_timeout = self._config.post_login_timeout if timeout is None else timeout
         self.lista_pedidos.wait_ready(timeout=load_timeout)
         self.lista_pedidos.invoke(timeout=load_timeout)
-        pedido_window = self.window.child_window(
-            title="Pedido",
-            control_type="Window",
-        )
+        pedido_window = Desktop(backend=self._config.backend).window(title="Pedido")
         pedido_window.wait(
             "visible enabled ready",
             timeout=load_timeout,
