@@ -5,6 +5,7 @@ from __future__ import annotations
 from typing import ClassVar
 
 from pywinauto import Desktop
+from pywinauto.keyboard import send_keys
 
 from lumina_bot.config import AppConfig, DEFAULT_CONFIG
 from lumina_bot.controls.base_control import BaseControl
@@ -101,11 +102,13 @@ class FastEntry(BaseControl):
                 wrapper.click_input()
                 wait_for_interval(0.12)
                 wrapper.click_input()
-            wrapper.set_focus()
-            wrapper.type_keys("^a")
-            wrapper.type_keys(code, with_spaces=True)
+            # The double click activates an inline editor. Calling
+            # set_focus() on the original MenuItem closes that editor, so
+            # send keystrokes to the focus that Lumina just established.
+            send_keys("^a")
+            send_keys(code, with_spaces=True)
             if press_enter:
-                wrapper.type_keys("{ENTER}")
+                send_keys("{ENTER}")
             wait_for_interval(self._config.wait_after_set_text)
         except LuminaBotError:
             self._capture_on_error("enter_code")
