@@ -18,6 +18,11 @@ class LoginPage(BasePage):
         self.senha = TextBox(window, "txtPassword")
         self.base = ComboBox(window, "ComboBoxEditDatabase")
         self.idioma = ComboBox(window, "ComboBoxEditLanguages")
+        self.ok = Button(
+            window,
+            "btnOk",
+            fallback_names=("Ok", "OK", "Entrar", "Login", "Confirmar"),
+        )
         self.cancelar = Button(
             window,
             "btnCancel",
@@ -36,6 +41,12 @@ class LoginPage(BasePage):
         self.usuario.set(usuario)
         self.logger.info("Typing password...")
         self.senha.set(senha, sensitive=True)
+        self.clicar_ok()
+
+    def clicar_ok(self) -> None:
+        """Click the login confirmation button."""
+        self.logger.info("Clicking login OK...")
+        self.ok.click()
 
     def selecionar_base(self, nome: str) -> None:
         """Select the target database/base."""
@@ -59,5 +70,6 @@ class LoginPage(BasePage):
             and self.senha.exists(timeout=timeout)
             and self.base.exists(timeout=timeout)
             and self.idioma.exists(timeout=timeout)
+            and self.ok.exists(timeout=timeout)
             and self.cancelar.exists(timeout=timeout)
         )
