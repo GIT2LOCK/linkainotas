@@ -6,6 +6,7 @@ from lumina_bot.controls.base_control import BaseControl, ControlLocator
 from lumina_bot.controls.button import Button
 from lumina_bot.controls.checkbox import CheckBox
 from lumina_bot.controls.combobox import ComboBox
+from lumina_bot.controls.fast_entry import FastEntry
 from lumina_bot.controls.label import Label
 from lumina_bot.controls.list_item import ListItem
 from lumina_bot.controls.radio_button import RadioButton
@@ -17,6 +18,7 @@ __all__ = [
     "CheckBox",
     "ComboBox",
     "ControlLocator",
+    "FastEntry",
     "Label",
     "ListItem",
     "RadioButton",

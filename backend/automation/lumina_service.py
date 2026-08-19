@@ -7,6 +7,7 @@ from threading import Lock
 from lumina_bot.config import LoginCredentials
 from lumina_bot.core.application import Application
 from lumina_bot.core.logger import configure_logging, get_logger
+from lumina_bot.core.waits import wait_for_interval
 from lumina_bot.pages.login_page import LoginPage
 from lumina_bot.pages.main_tile_page import MainTilePage
 from lumina_bot.pages.pedido_page import PedidoPage
@@ -57,13 +58,17 @@ class LuminaAutomationService:
         login_page.login(credentials.username, credentials.password)
 
         main_window = app.wait_for_authenticated_window()
-        pedido_window = MainTilePage(main_window).abrir_lista_pedidos()
-        pedido_page = PedidoPage(pedido_window)
-        pedido_page.selecionar_consulta_completa()
-        pedido_page.confirmar()
+        main_page = MainTilePage(main_window)
+        main_page.digitar_codigo_programa("PEDLST", press_enter=True)
 
-        self._logger.info("Lumina order list opened with complete query.")
+        PedidoPage(main_window).confirmar()
+
+        self._logger.info("Waiting 10 seconds before entering MEDNF...")
+        wait_for_interval(10.0)
+        main_page.digitar_codigo_programa("MEDNF")
+
+        self._logger.info("Lumina fast-entry flow completed.")
         return {
             "status": "started",
-            "message": "Lista de pedidos aberta com consulta completa",
+            "message": "Comandos PEDLST e MEDNF enviados ao Lumina",
         }
