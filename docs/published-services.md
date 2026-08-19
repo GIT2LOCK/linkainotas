@@ -49,34 +49,46 @@ Essa API executa `/uploads/documents` e `/invoke` para acoes como:
 
 ## Lancamento no Lumina
 
-Configure no Lovable:
+O lançamento atual usa a fila `public.lumina_jobs` no Supabase. O Lovable não precisa
+conhecer as URLs ou portas das máquinas Windows e o usuário não escolhe executor.
+
+Aplique a migração:
+
+`supabase/migrations/20260819130000_create_lumina_jobs_queue.sql`
+
+Na aplicação publicada, mantenha as variáveis normais de sessão do Supabase já
+configuradas. Não é necessário definir `LINKAI_LUMINA_URL` ou
+`LINKAI_LUMINA_URLS` para a tela atual.
+
+Em cada máquina Windows, configure no `lumina_bot/.env`:
 
 ```env
-LINKAI_LUMINA_URLS=http://escritorio.2lock.myddns.com:8766,http://escritorio.2lock.myddns.com:8767
-LINKAI_LUMINA_TOKEN=outro-token-longo-e-secreto
+SUPABASE_URL=https://seu-projeto.supabase.co
+SUPABASE_SERVICE_ROLE_KEY=chave-de-servico
+LINKAI_QUEUE_WORKER_ENABLED=true
+LINKAI_WORKER_ID=lumina-maquina-01
+LINKAI_QUEUE_POLL_SECONDS=3
+LINKAI_QUEUE_LEASE_SECONDS=300
 ```
 
-Os executores sao tentados na ordem informada. Quando o primeiro responder que
-esta ocupado (`409`) ou indisponivel, a server function tenta o proximo. A
-variavel legada `LINKAI_LUMINA_URL` continua funcionando para uma unica maquina.
+Use `lumina-maquina-02` na segunda máquina. A chave de serviço deve ser a mesma
+nas duas máquinas, permanecer somente no backend e nunca ser versionada.
 
-Cada executor Windows deve usar a porta local `8766`. O roteador deve publicar
-portas externas diferentes, por exemplo `8766 -> maquina 01:8766` e
-`8767 -> maquina 02:8766`.
-
-Na maquina Windows com Lumina instalado:
+Inicie a API em cada máquina:
 
 ```powershell
-$env:LINKAI_LUMINA_TOKEN="o-mesmo-token-do-lovable"
-$env:LINKAI_ALLOWED_ORIGINS="https://linkai.2lock.app.br"
-.\scripts\start-lumina-bridge.ps1
+.\\lumina_bot\\.venv\\Scripts\\python.exe -m uvicorn backend.api.server:app --host 0.0.0.0 --port 8766
 ```
 
-Essa URL e usada apenas para `lumina.start`.
+O worker inicia automaticamente com a API e consulta a fila. Confira em
+`/health` se `queue_worker.running` está como `true`.
 
-O endpoint `/health` informa `busy: true` quando existe uma sessao Lumina aberta.
-Para liberar o executor, encerre o Lumina na maquina correspondente.
+O caminho antigo de chamada direta `lumina.start` continua disponível apenas
+para compatibilidade com clientes legados; a tela atual de lançamento usa
+exclusivamente a fila. O detalhamento está em [docs/lumina-queue.md](lumina-queue.md).
 
 ## Compatibilidade
 
-`LINKAI_BRIDGE_URL` e `LINKAI_BRIDGE_TOKEN` continuam aceitos como fallback para ambientes antigos, mas as variaveis especificas acima sao preferiveis.
+`LINKAI_LUMINA_URLS`, `LINKAI_LUMINA_URL`, `LINKAI_BRIDGE_URL` e
+`LINKAI_BRIDGE_TOKEN` continuam aceitos pelo endpoint legado, mas não participam
+do novo fluxo de fila.

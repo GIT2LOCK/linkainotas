@@ -76,6 +76,7 @@ A tela de processamento concentra a escolha da origem, a leitura dos documentos,
 ### Automação Lumina
 
 - Execução somente mediante ação explícita do usuário.
+- Fila distribuída no Supabase: a primeira máquina Windows livre reserva o próximo atendimento.
 - Serviço Python desacoplado da interface React.
 - Comunicação por API FastAPI quando o processamento estiver hospedado em outra máquina.
 - Compatibilidade com execução local e com serviço publicado na rede.

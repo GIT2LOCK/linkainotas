@@ -5,6 +5,7 @@ from __future__ import annotations
 import os
 import shutil
 import uuid
+import logging
 from pathlib import Path
 from typing import Any
 
@@ -47,6 +48,34 @@ app.add_middleware(
     allow_methods=["*"],
     allow_headers=["*"],
 )
+
+_lumina_queue_worker: Any = None
+_logger = logging.getLogger("linkai.api")
+
+
+@app.on_event("startup")
+def start_lumina_queue_worker() -> None:
+    """Start one database-backed queue consumer on each Windows machine."""
+    global _lumina_queue_worker
+
+    enabled = os.getenv("LINKAI_QUEUE_WORKER_ENABLED", "true").strip().lower()
+    if os.name != "nt" or enabled in {"0", "false", "no", "off"}:
+        return
+
+    try:
+        from backend.automation.lumina_queue_worker import LuminaQueueWorker
+
+        _lumina_queue_worker = LuminaQueueWorker()
+        _lumina_queue_worker.start()
+    except Exception:
+        _logger.exception("Could not start the Lumina queue worker.")
+
+
+@app.on_event("shutdown")
+def stop_lumina_queue_worker() -> None:
+    """Stop the queue consumer during a graceful API shutdown."""
+    if _lumina_queue_worker is not None:
+        _lumina_queue_worker.stop()
 
 
 def require_token(request: Request, token_names: tuple[str, ...]) -> None:
@@ -99,6 +128,11 @@ def health() -> dict[str, Any]:
     return {
         "status": "ok",
         "busy": lumina_worker_busy(),
+        "queue_worker": (
+            _lumina_queue_worker.health()
+            if _lumina_queue_worker is not None
+            else {"enabled": False}
+        ),
         "features": ["document-uploads", "construction-insights"],
     }
 

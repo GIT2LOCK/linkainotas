@@ -95,6 +95,68 @@ export type Database = {
         }
         Relationships: []
       }
+      lumina_jobs: {
+        Row: {
+          action: string
+          attempts: number
+          created_at: string
+          empresa_id: number | null
+          finished_at: string | null
+          heartbeat_at: string | null
+          id: string
+          leased_until: string | null
+          message: string | null
+          payload: Json
+          requested_by: string
+          started_at: string | null
+          status: string
+          updated_at: string
+          worker_id: string | null
+        }
+        Insert: {
+          action?: string
+          attempts?: number
+          created_at?: string
+          empresa_id?: number | null
+          finished_at?: string | null
+          heartbeat_at?: string | null
+          id?: string
+          leased_until?: string | null
+          message?: string | null
+          payload?: Json
+          requested_by: string
+          started_at?: string | null
+          status?: string
+          updated_at?: string
+          worker_id?: string | null
+        }
+        Update: {
+          action?: string
+          attempts?: number
+          created_at?: string
+          empresa_id?: number | null
+          finished_at?: string | null
+          heartbeat_at?: string | null
+          id?: string
+          leased_until?: string | null
+          message?: string | null
+          payload?: Json
+          requested_by?: string
+          started_at?: string | null
+          status?: string
+          updated_at?: string
+          worker_id?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "lumina_jobs_empresa_id_fkey"
+            columns: ["empresa_id"]
+            isOneToOne: false
+            referencedRelation: "empresas"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       notas_processadas: {
         Row: {
           arquivo_pdf: string
@@ -394,6 +456,22 @@ export type Database = {
       jwt_empresa_id: { Args: never; Returns: number }
       jwt_has_permissao: { Args: { _permissoes: string[] }; Returns: boolean }
       jwt_permissao: { Args: never; Returns: string }
+      claim_lumina_job: {
+        Args: { p_lease_seconds?: number; p_worker_id: string }
+        Returns: Database["public"]["Tables"]["lumina_jobs"]["Row"][]
+      }
+      renew_lumina_job: {
+        Args: { p_job_id: string; p_lease_seconds?: number; p_worker_id: string }
+        Returns: boolean
+      }
+      release_lumina_job: {
+        Args: { p_job_id: string; p_message: string; p_worker_id: string }
+        Returns: boolean
+      }
+      finish_lumina_job: {
+        Args: { p_job_id: string; p_message: string; p_status: string; p_worker_id: string }
+        Returns: boolean
+      }
       vincular_nf_pedido: {
         Args: { p_nf_id: string; p_pedido_id: string }
         Returns: undefined
