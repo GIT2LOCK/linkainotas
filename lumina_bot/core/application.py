@@ -19,6 +19,7 @@ from lumina_bot.exceptions import (
     ConfigurationError,
     WindowNotFound,
 )
+from lumina_bot.core.waits import wait_until
 
 SHELL_LAUNCHER_SUFFIXES = {".appref-ms", ".lnk", ".url"}
 LOGIN_CONTROL_IDS = frozenset({"txtLogin", "txtPassword", "btnOk"})
@@ -100,6 +101,55 @@ class Application:
             handle = self.main_window.wrapper_object().handle
 
         return self.app.window(handle=handle)
+
+    def wait_for_authenticated_window(self, timeout: float | None = None) -> WindowSpecification:
+        """Reconnect to the post-login window after Lumina swaps Form1 for frmMain."""
+        wait_timeout = self._config.post_login_timeout if timeout is None else timeout
+        found_window: Any = None
+
+        def authenticated_window_is_ready() -> bool:
+            nonlocal found_window
+            desktop = Desktop(backend=self._config.backend)
+
+            for window in desktop.windows(visible_only=True):
+                try:
+                    title = (window.window_text() or "").strip().lower()
+                    class_name = (window.class_name() or "").lower()
+
+                    if "chrome" in class_name or "msedge" in class_name or "code" in class_name:
+                        continue
+
+                    if title not in {"frmmain", "lumina"} and "lumina" not in title:
+                        continue
+
+                    if any(
+                        str(getattr(getattr(control, "element_info", None), "name", "") or "")
+                        == "Lista de Pedidos"
+                        and str(
+                            getattr(getattr(control, "element_info", None), "control_type", "")
+                            or ""
+                        )
+                        == "ListItem"
+                        for control in window.descendants()
+                    ):
+                        found_window = window
+                        return True
+                except Exception:
+                    continue
+
+            return False
+
+        wait_until(
+            authenticated_window_is_ready,
+            timeout=wait_timeout,
+            retry_interval=self._config.retry_interval,
+            description="janela autenticada do Lumina com Lista de Pedidos",
+        )
+
+        self.main_window = found_window
+        self._connect_to_window(found_window)
+        self._logger.info("Authenticated Lumina window connected.")
+        return self.get_main_window()
 
     def _locate_main_window(self, timeout: float) -> Any:
         """Find and cache the Lumina main window."""

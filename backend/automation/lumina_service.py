@@ -56,6 +56,7 @@ class LuminaAutomationService:
         login_page = LoginPage(main_window)
         login_page.login(credentials.username, credentials.password)
 
+        main_window = app.wait_for_authenticated_window()
         pedido_window = MainTilePage(main_window).abrir_lista_pedidos()
         pedido_page = PedidoPage(pedido_window)
         pedido_page.selecionar_consulta_completa()
