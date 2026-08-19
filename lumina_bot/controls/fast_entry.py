@@ -94,7 +94,13 @@ class FastEntry(BaseControl):
         try:
             self.wait_ready(timeout=timeout)
             wrapper = self._wrapper()
-            wrapper.click_input()
+            double_click = getattr(wrapper, "double_click_input", None)
+            if callable(double_click):
+                double_click()
+            else:
+                wrapper.click_input()
+                wait_for_interval(0.12)
+                wrapper.click_input()
             wrapper.set_focus()
             wrapper.type_keys("^a")
             wrapper.type_keys(code, with_spaces=True)
