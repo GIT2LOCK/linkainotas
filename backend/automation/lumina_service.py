@@ -7,7 +7,6 @@ from threading import Lock
 from lumina_bot.config import LoginCredentials
 from lumina_bot.core.application import Application
 from lumina_bot.core.logger import configure_logging, get_logger
-from lumina_bot.core.waits import wait_for_interval
 from lumina_bot.pages.login_page import LoginPage
 from lumina_bot.pages.main_tile_page import MainTilePage
 from lumina_bot.pages.pedido_page import PedidoPage
@@ -53,7 +52,6 @@ class LuminaAutomationService:
 
         self._logger.info("Launching Lumina from desktop action...")
         main_window = app.launch_or_connect()
-        wait_for_interval(10)
 
         login_page = LoginPage(main_window)
         login_page.login(credentials.username, credentials.password)

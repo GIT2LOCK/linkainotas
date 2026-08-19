@@ -4,6 +4,7 @@ from __future__ import annotations
 
 from pywinauto.application import WindowSpecification
 
+from lumina_bot.config import AppConfig, DEFAULT_CONFIG
 from lumina_bot.controls import ListItem
 from lumina_bot.core.base_page import BasePage
 
@@ -11,16 +12,27 @@ from lumina_bot.core.base_page import BasePage
 class MainTilePage(BasePage):
     """Represents the tile menu shown after Lumina login."""
 
-    def __init__(self, window: WindowSpecification) -> None:
+    def __init__(
+        self,
+        window: WindowSpecification,
+        config: AppConfig = DEFAULT_CONFIG,
+    ) -> None:
         super().__init__(window)
-        self.lista_pedidos = ListItem(window, "Lista de Pedidos")
+        self._config = config
+        self.lista_pedidos = ListItem(window, "Lista de Pedidos", config=config)
 
-    def abrir_lista_pedidos(self) -> WindowSpecification:
+    def abrir_lista_pedidos(self, timeout: float | None = None) -> WindowSpecification:
         """Open the order list filter window using UI Automation InvokePattern."""
-        self.lista_pedidos.invoke()
+        load_timeout = self._config.post_login_timeout if timeout is None else timeout
+        self.lista_pedidos.wait_ready(timeout=load_timeout)
+        self.lista_pedidos.invoke(timeout=load_timeout)
         pedido_window = self.window.child_window(
             title="Pedido",
             control_type="Window",
         )
-        pedido_window.wait("visible enabled ready")
+        pedido_window.wait(
+            "visible enabled ready",
+            timeout=load_timeout,
+            retry_interval=self._config.retry_interval,
+        )
         return pedido_window

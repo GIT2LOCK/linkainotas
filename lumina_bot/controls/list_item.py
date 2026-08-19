@@ -5,6 +5,7 @@ from __future__ import annotations
 from typing import ClassVar
 
 from lumina_bot.controls.base_control import BaseControl
+from lumina_bot.config import AppConfig, DEFAULT_CONFIG
 from lumina_bot.core.waits import wait_for_interval
 from lumina_bot.exceptions import ElementInteractionError, LuminaBotError
 
@@ -14,8 +15,8 @@ class ListItem(BaseControl):
 
     control_type: ClassVar[str] = "ListItem"
 
-    def __init__(self, window, name: str) -> None:
-        super().__init__(window, "", name=name)
+    def __init__(self, window, name: str, config: AppConfig = DEFAULT_CONFIG) -> None:
+        super().__init__(window, "", config=config, name=name)
 
     def invoke(self, timeout: float | None = None) -> None:
         """Invoke the item's default action exposed by UI Automation."""

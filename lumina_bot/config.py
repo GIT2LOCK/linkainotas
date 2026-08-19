@@ -85,6 +85,7 @@ class Config:
     MODULO_PADRAO = os.getenv("MODULO_PADRAO", "Faturamento")
     JANELA_PRINCIPAL_TITLE = os.getenv("JANELA_PRINCIPAL_TITLE", "Lumina ERP")
     MENU_TREE_DEPTH = int(os.getenv("MENU_TREE_DEPTH", "5"))
+    POST_LOGIN_TIMEOUT = float(os.getenv("LUMINA_POST_LOGIN_TIMEOUT", "60"))
 
 
 @dataclass(frozen=True, slots=True)
@@ -98,6 +99,7 @@ class AppConfig:
     connect_timeout: float = 10.0
     window_timeout: float = 20.0
     implicit_timeout: float = 10.0
+    post_login_timeout: float = 60.0
     retry_interval: float = 0.3
     max_retries: int = 3
     wait_after_click: float = 0.2
@@ -133,6 +135,10 @@ class AppConfig:
             ),
             window_timeout=_get_float("LUMINA_WINDOW_TIMEOUT", Config.LUMINA_TIMEOUT),
             implicit_timeout=_get_float("LUMINA_IMPLICIT_TIMEOUT", Config.ELEMENT_WAIT),
+            post_login_timeout=_get_float(
+                "LUMINA_POST_LOGIN_TIMEOUT",
+                Config.POST_LOGIN_TIMEOUT,
+            ),
             retry_interval=_get_float("LUMINA_RETRY_INTERVAL", 0.3),
             max_retries=_get_int("LUMINA_MAX_RETRIES", Config.MAX_RETRIES),
             wait_after_click=_get_float(
