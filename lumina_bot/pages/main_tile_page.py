@@ -23,10 +23,10 @@ class MainTilePage(BasePage):
         self.lista_pedidos = ListItem(window, "Lista de Pedidos", config=config)
 
     def abrir_lista_pedidos(self, timeout: float | None = None) -> WindowSpecification:
-        """Open the order list filter window using UI Automation InvokePattern."""
+        """Open the order list filter window through the tile's native action."""
         load_timeout = self._config.post_login_timeout if timeout is None else timeout
         self.lista_pedidos.wait_ready(timeout=load_timeout)
-        self.lista_pedidos.invoke(timeout=load_timeout)
+        self.lista_pedidos.double_click(timeout=load_timeout)
         pedido_window = Desktop(backend=self._config.backend).window(title="Pedido")
         pedido_window.wait(
             "visible enabled ready",
