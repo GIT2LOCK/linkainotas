@@ -7,7 +7,29 @@ import unicodedata
 from dataclasses import dataclass
 from enum import Enum
 
-from rapidfuzz import fuzz
+try:
+    from rapidfuzz import fuzz
+except ImportError:  # Keep the standalone parser usable on a fresh worker.
+    from difflib import SequenceMatcher
+
+    class _FuzzFallback:
+        @staticmethod
+        def ratio(left: str, right: str) -> float:
+            return SequenceMatcher(None, left, right).ratio() * 100
+
+        @staticmethod
+        def partial_ratio(left: str, right: str) -> float:
+            if not left or not right:
+                return 0.0
+            if len(left) > len(right):
+                left, right = right, left
+            window = len(left)
+            return max(
+                SequenceMatcher(None, left, right[index:index + window]).ratio() * 100
+                for index in range(len(right) - window + 1)
+            )
+
+    fuzz = _FuzzFallback()
 
 
 class DocumentType(str, Enum):
@@ -15,6 +37,7 @@ class DocumentType(str, Enum):
 
     NFE_DANFE_55 = "NFE_DANFE_55"
     NFSE_SP = "NFSE_SP"
+    NFSE_COTIA_1P = "NFSE_COTIA_1P"
     UNKNOWN_LAYOUT = "UNKNOWN_LAYOUT"
     NFE = "NF-e"
     NFSE = "NFS-e"
@@ -35,6 +58,7 @@ class DocumentDetection:
     reason: str
     anchors_found: tuple[str, ...] = ()
     anchors_missing: tuple[str, ...] = ()
+    sub_layout: str | None = None
 
 
 class DocumentDetector:
@@ -128,6 +152,14 @@ class DocumentDetector:
 
     @classmethod
     def _detect_fiscal_layout(cls, normalized: str) -> DocumentDetection | None:
+        # Cotia must be evaluated before the generic São Paulo NFS-e anchors:
+        # both documents share the Prestador/Tomador labels.
+        cotia_anchors = (
+            "prefeitura do municipio de cotia",
+            "nota fiscal de servicos eletronica",
+            "prestador de servicos",
+            "tomador de servicos",
+        )
         nfse_anchors = (
             "prefeitura do municipio de sao paulo",
             "nota fiscal eletronica de servicos",
@@ -142,8 +174,20 @@ class DocumentDetector:
             "dados dos produtos servicos",
         )
 
+        cotia_found = tuple(anchor for anchor in cotia_anchors if cls._contains_anchor(normalized, anchor))
         nfse_found = tuple(anchor for anchor in nfse_anchors if cls._contains_anchor(normalized, anchor))
         nfe_found = tuple(anchor for anchor in nfe_anchors if cls._contains_anchor(normalized, anchor))
+
+        cotia_municipality = cls._compact(cotia_anchors[0]) in cls._compact(normalized)
+        if len(cotia_found) >= 3 and cotia_municipality:
+            return DocumentDetection(
+                document_type=DocumentType.NFSE_COTIA_1P,
+                confidence=min(100.0, 70.0 + len(cotia_found) * 7.5),
+                reason="NFSE_COTIA_1P fiscal layout anchors",
+                anchors_found=cotia_found,
+                anchors_missing=tuple(anchor for anchor in cotia_anchors if anchor not in cotia_found),
+                sub_layout="COTIA_1P",
+            )
 
         if len(nfse_found) >= 3:
             return DocumentDetection(
@@ -152,18 +196,32 @@ class DocumentDetector:
                 reason="NFSE_SP fiscal layout anchors",
                 anchors_found=nfse_found,
                 anchors_missing=tuple(anchor for anchor in nfse_anchors if anchor not in nfse_found),
+                sub_layout="SP_2P",
             )
 
         if len(nfe_found) >= 3:
+            sub_layout = cls._danfe_sub_layout(normalized)
             return DocumentDetection(
                 document_type=DocumentType.NFE_DANFE_55,
                 confidence=min(100.0, 60.0 + len(nfe_found) * 8.0),
                 reason="NFE_DANFE_55 fiscal layout anchors",
                 anchors_found=nfe_found,
                 anchors_missing=tuple(anchor for anchor in nfe_anchors if anchor not in nfe_found),
+                sub_layout=sub_layout,
             )
 
         return None
+
+    @classmethod
+    def _danfe_sub_layout(cls, normalized: str) -> str:
+        """Identify known DANFE variants without changing the canonical type."""
+        if cls._contains_anchor(normalized, "ecomix argamassas ltda") or cls._contains_anchor(normalized, "ecomix"):
+            return "ECOMIX_OCR"
+        if cls._contains_anchor(normalized, "metalurgica fhoenix do brasil ltda") or cls._contains_anchor(normalized, "fhoenix"):
+            return "FHOENIX"
+        if cls._contains_anchor(normalized, "stamp pre fabricados arquitetonicos ltda") or cls._contains_anchor(normalized, "stamp pre fabricados"):
+            return "STAMP"
+        return "GENERIC"
 
     @classmethod
     def _contains_anchor(cls, text: str, anchor: str) -> bool:

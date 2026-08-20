@@ -94,6 +94,8 @@ class BaseParser(ABC):
             tamanho_bytes=context.pdf.size_bytes,
             quantidade_paginas=context.pdf.page_count,
             ocr_required=context.pdf.ocr_required,
+            ocr_used=context.pdf.ocr_used or context.pdf.ocr_required,
+            sub_layout=context.detection.sub_layout,
             autor_pdf=context.pdf.author,
             criador_pdf=context.pdf.creator,
             producer_pdf=context.pdf.producer,
@@ -103,6 +105,8 @@ class BaseParser(ABC):
             "paginas": context.pdf.page_count,
             "palavras_com_bbox": len(context.pdf.words),
             "camada_textual_disponivel": not context.pdf.ocr_required,
+            "ocr_used": nota.ocr_used,
+            "ocr_confidence": context.pdf.ocr_confidence,
         }
 
         self._apply_common_fields(nota, context.text)

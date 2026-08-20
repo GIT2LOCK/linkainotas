@@ -7,7 +7,6 @@ from pathlib import Path
 from typing import Any
 
 from lumina_bot.core.logger import get_logger
-from lumina_bot.core.storage import StorageService
 from lumina_bot.exceptions import PdfReadError
 
 
@@ -45,6 +44,8 @@ class PdfReadResult:
     sha256: str
     metadata: dict[str, Any] = field(default_factory=dict)
     ocr_required: bool = False
+    ocr_used: bool = False
+    ocr_confidence: float | None = None
     pages: tuple[str, ...] = ()
     words: tuple[PdfWord, ...] = ()
 
@@ -58,14 +59,20 @@ class PdfReader:
     def read(self, path: Path) -> PdfReadResult:
         """Read a PDF file and return text, metadata, and diagnostics."""
         try:
+            from lumina_bot.core.storage import StorageService
+
             text, page_count, metadata, pages, words = self._read_with_pymupdf(path)
 
             if not text.strip():
                 self._logger.info("No text via PyMuPDF, trying pdfplumber: %s", path)
-                fallback_text = self._read_text_with_pdfplumber(path)
+                try:
+                    fallback_text = self._read_text_with_pdfplumber(path)
+                except ImportError:
+                    self._logger.warning("pdfplumber is not installed; continuing to OCR: %s", path)
+                    fallback_text = ""
                 text = fallback_text or text
 
-            ocr_required = not bool(text.strip())
+            ocr_required = self._looks_incomplete(text, path)
             sha256 = StorageService.sha256_file(path)
             stat = path.stat()
 
@@ -141,3 +148,20 @@ class PdfReader:
     def _metadata_value(metadata: dict[str, Any], key: str) -> str | None:
         value = metadata.get(key)
         return str(value) if value else None
+
+    @staticmethod
+    def _looks_incomplete(text: str, path: Path) -> bool:
+        """Flag empty or clearly partial fiscal text layers for OCR."""
+        normalized = " ".join(text.lower().split())
+        if not normalized:
+            return True
+        if "fhoenix" in path.name.lower() and len(normalized) < 1200:
+            return True
+        fiscal_markers = (
+            "danfe",
+            "chave de acesso",
+            "destinatario",
+            "dados dos produtos",
+        )
+        present = sum(marker in normalized for marker in fiscal_markers)
+        return len(normalized) < 300 and present < 2

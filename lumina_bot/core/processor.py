@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+from dataclasses import replace
 import json
 import time
 from dataclasses import asdict, dataclass
@@ -249,8 +250,25 @@ class Processor:
         pdf = self._pdf_reader.read(local_pdf.local_path)
 
         if pdf.ocr_required:
-            self._ocr_service.extract_text(local_pdf.local_path)
-            self._logger.info("PDF marked for future OCR: %s", local_pdf.local_path)
+            ocr_result = self._ocr_service.extract_text(local_pdf.local_path)
+            if ocr_result.text.strip():
+                pdf = replace(
+                    pdf,
+                    text=ocr_result.text,
+                    pages=ocr_result.pages or (ocr_result.text,),
+                    words=ocr_result.words,
+                    ocr_required=False,
+                    ocr_used=True,
+                    ocr_confidence=ocr_result.confidence,
+                )
+                self._logger.info(
+                    "OCR completed: %s | engine=%s | confidence=%s",
+                    local_pdf.local_path,
+                    ocr_result.engine,
+                    ocr_result.confidence,
+                )
+            else:
+                self._logger.warning("OCR produced no usable text: %s", local_pdf.local_path)
 
         nota = self._parser_manager.parse(
             pdf,

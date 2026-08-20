@@ -29,6 +29,8 @@ class NotaFiscal:
     tamanho_bytes: int | None = None
     quantidade_paginas: int | None = None
     ocr_required: bool = False
+    ocr_used: bool = False
+    sub_layout: str | None = None
 
     numero: str | None = None
     serie: str | None = None
@@ -39,6 +41,16 @@ class NotaFiscal:
     data_emissao: str | None = None
     hora_emissao: str | None = None
     competencia: str | None = None
+    chave_acesso_raw: str | None = None
+    rps_numero: str | None = None
+    municipio_emissor_nfse: str | None = None
+    municipio_incidencia_iss: str | None = None
+    codigo_nbs: str | None = None
+    cnae: str | None = None
+    codigo_obra: str | None = None
+    codigo_cei_cno: str | None = None
+    sfo_bras: str | None = None
+    valor_aproximado_tributos_raw: str | None = None
 
     prestador: Emitente = field(default_factory=Emitente)
     tomador: Tomador = field(default_factory=Tomador)
@@ -87,6 +99,8 @@ class NotaFiscal:
             "tamanho_bytes": self.tamanho_bytes,
             "quantidade_paginas": self.quantidade_paginas,
             "ocr_required": self.ocr_required,
+            "ocr_used": self.ocr_used,
+            "sub_layout": self.sub_layout,
             "numero": self.numero,
             "serie": self.serie,
             "modelo": self.modelo,
@@ -96,6 +110,16 @@ class NotaFiscal:
             "data_emissao": self.data_emissao,
             "hora_emissao": self.hora_emissao,
             "competencia": self.competencia,
+            "chave_acesso_raw": self.chave_acesso_raw,
+            "rps_numero": self.rps_numero,
+            "municipio_emissor_nfse": self.municipio_emissor_nfse,
+            "municipio_incidencia_iss": self.municipio_incidencia_iss,
+            "codigo_nbs": self.codigo_nbs,
+            "cnae": self.cnae,
+            "codigo_obra": self.codigo_obra,
+            "codigo_cei_cno": self.codigo_cei_cno,
+            "sfo_bras": self.sfo_bras,
+            "valor_aproximado_tributos_raw": self.valor_aproximado_tributos_raw,
             "municipio": self.municipio,
             "uf": self.uf,
             "codigo_municipio": self.codigo_municipio,

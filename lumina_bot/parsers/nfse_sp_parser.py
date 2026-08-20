@@ -35,7 +35,11 @@ class NfseSpParser(BaseParser):
 
         nota.tipo_documento = DocumentType.NFSE_SP.value
         nota.layout = DocumentType.NFSE_SP.value
+        nota.sub_layout = "SP_2P"
         nota.modelo = "NFS-e"
+        nota.municipio_emissor_nfse = "São Paulo"
+        nota.municipio = "São Paulo"
+        nota.uf = "SP"
         nota.prestador.cnpj = self._cnpj_in_section(page_one, "prestador de servicos", "tomador de servicos") or nota.prestador.cnpj
         nota.tomador.cnpj = self._cnpj_in_section(page_one, "tomador de servicos", "intermediario de servicos")
         self._parse_header(nota, page_one, text)
@@ -56,8 +60,9 @@ class NfseSpParser(BaseParser):
         if date_line:
             date_match = re.search(r"\d{2}/\d{2}/\d{4}", date_line)
             time_match = re.search(r"\d{2}:\d{2}:\d{2}", date_line)
-            nota.data_emissao = iso_date(date_match.group(0)) if date_match else nota.data_emissao
+            emission_date = iso_date(date_match.group(0)) if date_match else None
             nota.hora_emissao = time_match.group(0) if time_match else nota.hora_emissao
+            nota.data_emissao = f"{emission_date}T{nota.hora_emissao}" if emission_date and nota.hora_emissao else emission_date
             record_field(nota, "data_emissao", nota.data_emissao, raw=date_line, page=1)
 
         verification = first_match(r"(?m)^([A-Z0-9]{4}-[A-Z0-9]{4})$", "\n".join(lines))
@@ -70,12 +75,15 @@ class NfseSpParser(BaseParser):
         if identifier:
             nota.outros_campos["identificador_nacional"] = identifier
             nota.chave = identifier
+            nota.chave_acesso_raw = identifier
             record_field(nota, "identificador_nacional", identifier, raw=identifier, page=1)
 
-        rps = first_match(r"(?mi)^rps\s+n[^0-9]*([0-9]+)\s+s[^a-z0-9]+([^,]+)", "\n".join(lines))
-        if rps:
-            nota.outros_campos["rps_numero"] = rps
-            nota.serie = rps.split(" ", 1)[1].strip() if " " in rps else "NFSE"
+        rps_match = re.search(r"(?mi)^rps\s+n[^0-9]*([0-9]+)\s+s[^a-z0-9]+([^,\n]+)", "\n".join(lines))
+        if rps_match:
+            nota.rps_numero = rps_match.group(1).strip()
+            nota.outros_campos["rps_numero"] = nota.rps_numero
+            nota.outros_campos["rps_serie"] = rps_match.group(2).strip() or "NFSE"
+            nota.serie = nota.outros_campos["rps_serie"]
         rps_date = first_match(r"(?mi)^rps.*emitido em\s+([0-9]{2}/[0-9]{2}/[0-9]{4})", "\n".join(lines))
         if rps_date:
             nota.outros_campos["rps_data_emissao"] = iso_date(rps_date)
@@ -206,6 +214,7 @@ class NfseSpParser(BaseParser):
             if approximate:
                 nota.tributos.valor_aproximado = decimal(approximate)
                 nota.outros_campos["valor_aproximado_raw"] = approximate
+                nota.valor_aproximado_tributos_raw = approximate
 
     def _parse_page_two(self, nota: NotaFiscal, lines: list[str], text: str) -> None:
         if not lines:
@@ -231,6 +240,7 @@ class NfseSpParser(BaseParser):
             "nbs": nbs_value,
             "situacao_tributaria": value_after(lines, "situacao tributaria"),
         }
+        nota.codigo_nbs = digits(nbs_value)
         if purchaser_values:
             nota.outros_campos["ibs_cbs"]["adquirente"] = {
                 "cnpj": purchaser_values[0] if len(purchaser_values) > 0 else None,
@@ -255,6 +265,11 @@ class NfseSpParser(BaseParser):
         nota.tributos.cbs = max((value for value in cbs_values if value is not None and value <= 100), default=None)
         nota.outros_campos["ibs_cbs"]["valor_ibs"] = nota.tributos.ibs
         nota.outros_campos["ibs_cbs"]["valor_cbs"] = nota.tributos.cbs
+        nota.outros_campos["nfse"] = {
+            "identificador_nacional": identifier,
+            "rps_numero": nota.rps_numero,
+            "municipio_emissor": nota.municipio_emissor_nfse,
+        }
 
     def _validate(self, nota: NotaFiscal) -> None:
         if nota.valor_total is not None and nota.valor_bruto is not None:

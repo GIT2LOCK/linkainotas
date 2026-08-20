@@ -10,6 +10,7 @@ from lumina_bot.parsers.mdfe_parser import MdfeParser
 from lumina_bot.parsers.nfce_parser import NfceParser
 from lumina_bot.parsers.nfe_parser import NfeParser
 from lumina_bot.parsers.nfse_parser import NfseParser
+from lumina_bot.parsers.nfse_cotia_parser import NfseCotiaParser
 from lumina_bot.parsers.nfse_sp_parser import NfseSpParser
 from lumina_bot.parsers.nfe_danfe55_parser import NfeDanfe55Parser
 
@@ -22,6 +23,7 @@ __all__ = [
     "NfceParser",
     "NfeParser",
     "NfseParser",
+    "NfseCotiaParser",
     "NfseSpParser",
     "NfeDanfe55Parser",
     "ParseContext",

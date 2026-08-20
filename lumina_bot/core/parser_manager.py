@@ -23,6 +23,7 @@ from lumina_bot.parsers import (
     NfeParser,
     NfeDanfe55Parser,
     NfseParser,
+    NfseCotiaParser,
     NfseSpParser,
     ParseContext,
 )
@@ -37,6 +38,7 @@ class ParserManager:
         self._parsers: dict[DocumentType, BaseParser] = {
             DocumentType.NFE_DANFE_55: NfeDanfe55Parser(),
             DocumentType.NFSE_SP: NfseSpParser(),
+            DocumentType.NFSE_COTIA_1P: NfseCotiaParser(),
             DocumentType.NFE: NfeParser(),
             DocumentType.NFSE: NfseParser(),
             DocumentType.NFCE: NfceParser(),

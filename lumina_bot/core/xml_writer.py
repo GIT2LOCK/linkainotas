@@ -32,16 +32,71 @@ class XmlWriter:
             {
                 "schema": self.schema,
                 "tipo": nota.layout or nota.tipo_documento or "UNKNOWN_LAYOUT",
+                "sub_layout": nota.sub_layout or "",
+                "ocr_used": str(nota.ocr_used).lower(),
                 "source_format": source_format,
                 "generated_at": datetime.now(timezone.utc).isoformat(),
             },
         )
+        self._append_canonical(root, nota)
         self._append_value(root, "documento", nota.to_dict())
 
         tree = ET.ElementTree(root)
         ET.indent(tree, space="  ")
         tree.write(output_path, encoding="utf-8", xml_declaration=True)
         return output_path
+
+    @classmethod
+    def _append_canonical(cls, root: ET.Element, nota: NotaFiscal) -> None:
+        """Write stable top-level blocks while retaining the full nested object."""
+        cls._append_value(root, "origem", {
+            "arquivo": nota.arquivo,
+            "hash": nota.sha256,
+            "paginas": nota.quantidade_paginas,
+            "layout": nota.layout,
+            "sub_layout": nota.sub_layout,
+            "ocr_used": nota.ocr_used,
+        })
+        cls._append_value(root, "identificacao", {
+            "numero": nota.numero,
+            "serie": nota.serie,
+            "modelo": nota.modelo,
+            "dataEmissao": nota.data_emissao,
+            "horaEmissao": nota.hora_emissao,
+            "competencia": nota.competencia,
+            "chaveAcesso": nota.chave,
+            "chaveAcessoRaw": nota.chave_acesso_raw,
+            "codigoVerificacao": nota.autorizacao,
+            "rpsNumero": nota.rps_numero,
+        })
+        cls._append_value(root, "emitente", nota.prestador.to_dict())
+        cls._append_value(root, "destinatario", nota.tomador.to_dict())
+        cls._append_value(root, "totais", {
+            "valorBruto": nota.valor_bruto,
+            "valorLiquido": nota.valor_liquido,
+            "valorTotal": nota.valor_total,
+        })
+        cls._append_value(root, "tributos", nota.tributos.to_dict())
+        cls._append_value(root, "itens", [item.to_dict() for item in nota.itens])
+        cls._append_value(root, "parcelas", [parcela.to_dict() for parcela in nota.parcelas])
+        cls._append_value(root, "dadosAdicionais", {
+            "municipioEmissorNfse": nota.municipio_emissor_nfse,
+            "municipioIncidenciaIss": nota.municipio_incidencia_iss,
+            "codigoNbs": nota.codigo_nbs,
+            "cnae": nota.cnae,
+            "codigoObra": nota.codigo_obra,
+            "codigoCeiCno": nota.codigo_cei_cno,
+            "sfoBras": nota.sfo_bras,
+            "valorAproximadoTributosRaw": nota.valor_aproximado_tributos_raw,
+            "observacoes": nota.observacoes,
+        })
+        if nota.layout == "NFSE_COTIA_1P":
+            cls._append_value(root, "nfseCotia", nota.outros_campos.get("nfse", {}))
+        elif nota.layout == "NFSE_SP":
+            cls._append_value(root, "nfse", nota.outros_campos.get("nfse", {}))
+        elif nota.layout == "NFE_DANFE_55":
+            cls._append_value(root, "nfe", nota.outros_campos.get("nfe", {}))
+        cls._append_value(root, "validacao", [validation.to_dict() for validation in nota.validacoes])
 
     @classmethod
     def _append_value(cls, parent: ET.Element, name: str, value: Any) -> None:
