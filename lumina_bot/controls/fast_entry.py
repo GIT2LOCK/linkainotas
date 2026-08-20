@@ -112,7 +112,7 @@ class FastEntry(BaseControl):
             # set_focus() on the original MenuItem closes that editor, so
             # send keystrokes to the focus that Lumina just established.
             send_keys("^a")
-            send_keys(code, with_spaces=True)
+            send_keys(code, pause=0.01, with_spaces=True)
             if press_enter:
                 send_keys("{ENTER}")
             wait_for_interval(self._config.wait_after_set_text)
