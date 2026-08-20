@@ -62,7 +62,7 @@ class LuminaAutomationService:
 
         PedidoPage(main_window).confirmar()
 
-        main_page.digitar_codigo_programa("MEDNF")
+        main_page.digitar_codigo_programa("MEDNF", press_enter=True)
 
         self._logger.info("Lumina fast-entry flow completed.")
         return {
