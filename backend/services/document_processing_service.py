@@ -14,7 +14,8 @@ from lumina_bot.config import PROJECT_ROOT, get_supabase_config
 from lumina_bot.core.excel_writer import ExcelWriter
 from lumina_bot.core.logger import get_logger
 from lumina_bot.core.parser_manager import ParserManager
-from lumina_bot.core.pdf_reader import PdfReader
+from lumina_bot.core.ocr import OcrService
+from lumina_bot.core.pdf_reader import PdfReadResult, PdfReader
 from lumina_bot.core.processor import Processor
 from lumina_bot.core.storage import StorageService
 from lumina_bot.core.xml_writer import XmlWriter
@@ -31,6 +32,7 @@ class DocumentProcessingService:
     def __init__(self) -> None:
         self._local_source = LocalDocumentSource()
         self._pdf_reader = PdfReader()
+        self._ocr_service = OcrService()
         self._parser_manager = ParserManager()
         self._registry = ProcessingUiRegistry()
         self._xml_writer = XmlWriter()
@@ -161,7 +163,7 @@ class DocumentProcessingService:
                         source_hash,
                     )
 
-                pdf = self._pdf_reader.read(working_path)
+                pdf = self._read_pdf_with_ocr(working_path)
                 xml_source_path = self._find_xml_for_pdf(
                     source_path,
                     pdf.text,
@@ -333,6 +335,29 @@ class DocumentProcessingService:
             source=options.source,
             download_path=download_dir,
             download_label=options.download_path_label,
+        )
+
+    def _read_pdf_with_ocr(self, path: Path) -> PdfReadResult:
+        """Read a local PDF and OCR it when its text layer is incomplete."""
+        pdf = self._pdf_reader.read(path)
+        if not pdf.ocr_required:
+            return pdf
+
+        ocr_result = self._ocr_service.extract_text(path)
+        if not ocr_result.text.strip():
+            raise RuntimeError(
+                "OCR necessario para este PDF, mas nenhum texto foi reconhecido. "
+                f"Verifique o Tesseract e as dependencias do servico (engine={ocr_result.engine})."
+            )
+
+        return replace(
+            pdf,
+            text=ocr_result.text,
+            pages=ocr_result.pages or (ocr_result.text,),
+            words=ocr_result.words,
+            ocr_required=False,
+            ocr_used=True,
+            ocr_confidence=ocr_result.confidence,
         )
 
     @staticmethod
