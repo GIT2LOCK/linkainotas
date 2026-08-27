@@ -10,7 +10,7 @@ export type Database = {
   // Allows to automatically instantiate createClient with right options
   // instead of createClient<Database, { PostgrestVersion: 'XX' }>(URL, KEY)
   __InternalSupabase: {
-    PostgrestVersion: "14.15"
+    PostgrestVersion: "14.17"
   }
   public: {
     Tables: {
@@ -440,7 +440,42 @@ export type Database = {
           pedido_id: string
         }[]
       }
+      claim_lumina_job: {
+        Args: { p_lease_seconds?: number; p_worker_id: string }
+        Returns: {
+          action: string
+          attempts: number
+          created_at: string
+          empresa_id: number | null
+          finished_at: string | null
+          heartbeat_at: string | null
+          id: string
+          leased_until: string | null
+          message: string | null
+          payload: Json
+          requested_by: string
+          started_at: string | null
+          status: string
+          updated_at: string
+          worker_id: string | null
+        }[]
+        SetofOptions: {
+          from: "*"
+          to: "lumina_jobs"
+          isOneToOne: false
+          isSetofReturn: true
+        }
+      }
       custom_access_token_hook: { Args: { event: Json }; Returns: Json }
+      finish_lumina_job: {
+        Args: {
+          p_job_id: string
+          p_message: string
+          p_status: string
+          p_worker_id: string
+        }
+        Returns: boolean
+      }
       get_usuario_atual: {
         Args: never
         Returns: {
@@ -456,20 +491,16 @@ export type Database = {
       jwt_empresa_id: { Args: never; Returns: number }
       jwt_has_permissao: { Args: { _permissoes: string[] }; Returns: boolean }
       jwt_permissao: { Args: never; Returns: string }
-      claim_lumina_job: {
-        Args: { p_lease_seconds?: number; p_worker_id: string }
-        Returns: Database["public"]["Tables"]["lumina_jobs"]["Row"][]
-      }
-      renew_lumina_job: {
-        Args: { p_job_id: string; p_lease_seconds?: number; p_worker_id: string }
-        Returns: boolean
-      }
       release_lumina_job: {
         Args: { p_job_id: string; p_message: string; p_worker_id: string }
         Returns: boolean
       }
-      finish_lumina_job: {
-        Args: { p_job_id: string; p_message: string; p_status: string; p_worker_id: string }
+      renew_lumina_job: {
+        Args: {
+          p_job_id: string
+          p_lease_seconds?: number
+          p_worker_id: string
+        }
         Returns: boolean
       }
       vincular_nf_pedido: {
