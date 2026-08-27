@@ -104,9 +104,11 @@ export type Database = {
           finished_at: string | null
           heartbeat_at: string | null
           id: string
+          item_number: number
           leased_until: string | null
           message: string | null
           payload: Json
+          queue_request_id: string | null
           requested_by: string
           started_at: string | null
           status: string
@@ -121,9 +123,11 @@ export type Database = {
           finished_at?: string | null
           heartbeat_at?: string | null
           id?: string
+          item_number?: number
           leased_until?: string | null
           message?: string | null
           payload?: Json
+          queue_request_id?: string | null
           requested_by: string
           started_at?: string | null
           status?: string
@@ -138,9 +142,11 @@ export type Database = {
           finished_at?: string | null
           heartbeat_at?: string | null
           id?: string
+          item_number?: number
           leased_until?: string | null
           message?: string | null
           payload?: Json
+          queue_request_id?: string | null
           requested_by?: string
           started_at?: string | null
           status?: string
@@ -150,6 +156,140 @@ export type Database = {
         Relationships: [
           {
             foreignKeyName: "lumina_jobs_empresa_id_fkey"
+            columns: ["empresa_id"]
+            isOneToOne: false
+            referencedRelation: "empresas"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "lumina_jobs_queue_request_id_fkey"
+            columns: ["queue_request_id"]
+            isOneToOne: false
+            referencedRelation: "lumina_queue_requests"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      lumina_queue_logs: {
+        Row: {
+          action: string | null
+          attempts: number
+          empresa_id: number | null
+          finished_at: string
+          id: string
+          item_number: number
+          message: string | null
+          payload: Json
+          queue_item_id: string
+          queue_number: number
+          queue_request_id: string | null
+          queued_at: string | null
+          requested_by: string | null
+          started_at: string | null
+          status: string
+          worker_id: string | null
+        }
+        Insert: {
+          action?: string | null
+          attempts?: number
+          empresa_id?: number | null
+          finished_at?: string
+          id?: string
+          item_number: number
+          message?: string | null
+          payload?: Json
+          queue_item_id: string
+          queue_number: number
+          queue_request_id?: string | null
+          queued_at?: string | null
+          requested_by?: string | null
+          started_at?: string | null
+          status: string
+          worker_id?: string | null
+        }
+        Update: {
+          action?: string | null
+          attempts?: number
+          empresa_id?: number | null
+          finished_at?: string
+          id?: string
+          item_number?: number
+          message?: string | null
+          payload?: Json
+          queue_item_id?: string
+          queue_number?: number
+          queue_request_id?: string | null
+          queued_at?: string | null
+          requested_by?: string | null
+          started_at?: string | null
+          status?: string
+          worker_id?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "lumina_queue_logs_queue_request_id_fkey"
+            columns: ["queue_request_id"]
+            isOneToOne: false
+            referencedRelation: "lumina_queue_requests"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      lumina_queue_requests: {
+        Row: {
+          action: string
+          canceled_items: number
+          completed_items: number
+          created_at: string
+          empresa_id: number | null
+          failed_items: number
+          finished_at: string | null
+          id: string
+          message: string | null
+          queue_number: number
+          requested_by: string
+          started_at: string | null
+          status: string
+          total_items: number
+          updated_at: string
+        }
+        Insert: {
+          action?: string
+          canceled_items?: number
+          completed_items?: number
+          created_at?: string
+          empresa_id?: number | null
+          failed_items?: number
+          finished_at?: string | null
+          id?: string
+          message?: string | null
+          queue_number?: number
+          requested_by: string
+          started_at?: string | null
+          status?: string
+          total_items?: number
+          updated_at?: string
+        }
+        Update: {
+          action?: string
+          canceled_items?: number
+          completed_items?: number
+          created_at?: string
+          empresa_id?: number | null
+          failed_items?: number
+          finished_at?: string | null
+          id?: string
+          message?: string | null
+          queue_number?: number
+          requested_by?: string
+          started_at?: string | null
+          status?: string
+          total_items?: number
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "lumina_queue_requests_empresa_id_fkey"
             columns: ["empresa_id"]
             isOneToOne: false
             referencedRelation: "empresas"
@@ -450,9 +590,11 @@ export type Database = {
           finished_at: string | null
           heartbeat_at: string | null
           id: string
+          item_number: number
           leased_until: string | null
           message: string | null
           payload: Json
+          queue_request_id: string | null
           requested_by: string
           started_at: string | null
           status: string
@@ -467,6 +609,32 @@ export type Database = {
         }
       }
       custom_access_token_hook: { Args: { event: Json }; Returns: Json }
+      enqueue_lumina_request: {
+        Args: { p_action?: string; p_items?: Json; p_payload?: Json }
+        Returns: {
+          action: string
+          canceled_items: number
+          completed_items: number
+          created_at: string
+          empresa_id: number | null
+          failed_items: number
+          finished_at: string | null
+          id: string
+          message: string | null
+          queue_number: number
+          requested_by: string
+          started_at: string | null
+          status: string
+          total_items: number
+          updated_at: string
+        }
+        SetofOptions: {
+          from: "*"
+          to: "lumina_queue_requests"
+          isOneToOne: true
+          isSetofReturn: false
+        }
+      }
       finish_lumina_job: {
         Args: {
           p_job_id: string
@@ -491,6 +659,14 @@ export type Database = {
       jwt_empresa_id: { Args: never; Returns: number }
       jwt_has_permissao: { Args: { _permissoes: string[] }; Returns: boolean }
       jwt_permissao: { Args: never; Returns: string }
+      lumina_archive_job: {
+        Args: { p_job_id: string; p_message: string; p_status: string }
+        Returns: boolean
+      }
+      lumina_refresh_request: {
+        Args: { p_request_id: string }
+        Returns: undefined
+      }
       release_lumina_job: {
         Args: { p_job_id: string; p_message: string; p_worker_id: string }
         Returns: boolean
