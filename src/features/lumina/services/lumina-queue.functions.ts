@@ -112,3 +112,34 @@ export const getLuminaJobStatus = createServerFn({ method: "POST" })
     const runningItem = items?.[0] ?? null;
     return mapRequest(row, runningItem?.worker_id ?? null);
   });
+
+export const getActiveLuminaRequest = createServerFn({ method: "POST" })
+  .middleware([requireLinkaiUser])
+  .validator((data: unknown) => {
+    if (data !== undefined && (typeof data !== "object" || data === null || Array.isArray(data))) {
+      throw new Error("Invalid queue payload.");
+    }
+    return {};
+  })
+  .handler(async ({ context }): Promise<LuminaJob | null> => {
+    const { data: rows, error } = await context.supabase
+      .from("lumina_queue_requests")
+      .select(REQUEST_COLUMNS)
+      .in("status", ["queued", "running"])
+      .order("created_at", { ascending: false })
+      .limit(1);
+
+    if (error) throw error;
+
+    const row = (rows?.[0] ?? null) as RequestSelection | null;
+    if (!row) return null;
+
+    const { data: items } = await context.supabase
+      .from("lumina_jobs")
+      .select("worker_id, message, status")
+      .eq("queue_request_id", row.id)
+      .eq("status", "running")
+      .limit(1);
+
+    return mapRequest(row, items?.[0]?.worker_id ?? null);
+  });
