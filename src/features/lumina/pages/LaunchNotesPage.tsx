@@ -65,12 +65,13 @@ export function LaunchNotesPage() {
       : job?.status === "succeeded"
         ? "success"
         : "warning";
+  const queueLabel = job?.queueNumber ? `Solicitação nº ${job.queueNumber}. ` : "";
   const statusMessage = error
     ? error
     : job?.status === "queued"
-      ? "Pedido colocado na fila. Aguardando uma máquina disponível."
+      ? `${queueLabel}Pedido colocado na fila. Aguardando uma máquina disponível.`
       : job?.status === "running"
-        ? "Uma máquina disponível iniciou o atendimento. Ela permanecerá reservada enquanto o Lumina estiver aberto."
+        ? `${queueLabel}Uma máquina disponível iniciou o atendimento. Ela permanecerá reservada enquanto o Lumina estiver aberto.`
         : job?.status === "succeeded"
           ? "Atendimento concluído e máquina liberada."
           : job?.status === "failed"
