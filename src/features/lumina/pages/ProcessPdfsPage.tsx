@@ -265,6 +265,7 @@ export function ProcessPdfsPage() {
 
     try {
       const directory = await window.showDirectoryPicker();
+      await ensureDirectoryWriteAccess(directory);
       setBrowserDownloadDirectory(directory);
       setDownloadPath(null);
       setDownloadPathLabel(`Pasta escolhida no navegador: ${directory.name}`);
@@ -272,6 +273,7 @@ export function ProcessPdfsPage() {
       setSelectionError(selectionDialogError(error));
     }
   }
+
 
   async function selectFolder() {
     setSelectionError(null);
