@@ -31,6 +31,7 @@ const PROCESSING_NOT_CONFIGURED =
   "Servico de processamento de documentos nao configurado. Defina LINKAI_PROCESSING_URL no ambiente publicado.";
 const LUMINA_NOT_CONFIGURED =
   "Executor Lumina nao configurado. Defina LINKAI_LUMINA_URL no ambiente publicado.";
+const QUICK_ACTION_TIMEOUT_MS = 5000;
 
 export const invokePublishedBackend = createServerFn({ method: "POST" })
   .validator((data: unknown): BackendInvokeInput => {
@@ -73,7 +74,7 @@ export const invokePublishedBackend = createServerFn({ method: "POST" })
           method: "POST",
           headers: jsonHeaders(service.token),
           body: JSON.stringify(data),
-        });
+        }, data.action === "documents.process" ? undefined : QUICK_ACTION_TIMEOUT_MS);
 
         if (response.status === 409 || response.status === 503) {
           lastError = "Executor ocupado ou indisponivel.";
@@ -250,15 +251,19 @@ function isBusyResult(result: CommandResult<JsonValue>): boolean {
 async function fetchWithTimeout(
   input: string,
   init: RequestInit,
-  timeoutMs = 5000,
+  timeoutMs: number | undefined,
 ): Promise<Response> {
   const controller = new AbortController();
-  const timeoutId = setTimeout(() => controller.abort(), timeoutMs);
+  const timeoutId = timeoutMs === undefined
+    ? undefined
+    : setTimeout(() => controller.abort(), timeoutMs);
 
   try {
     return await fetch(input, { ...init, signal: controller.signal });
   } finally {
-    clearTimeout(timeoutId);
+    if (timeoutId !== undefined) {
+      clearTimeout(timeoutId);
+    }
   }
 }
 
