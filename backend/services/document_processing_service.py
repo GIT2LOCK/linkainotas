@@ -78,6 +78,7 @@ class DocumentProcessingService:
         summary = processor.run(
             generate_excel=options.generate_excel,
             excel_mode=options.excel_mode,
+            ignore_duplicates=options.ignore_duplicates,
         )
         elapsed = time.perf_counter() - started
         excel_files = self._file_exports(

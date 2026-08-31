@@ -79,6 +79,23 @@ export const enqueueLuminaLaunch = createServerFn({ method: "POST" })
     return mapRequest(row);
   });
 
+export const getActiveLuminaRequest = createServerFn({ method: "POST" })
+  .middleware([requireLinkaiUser])
+  .validator(() => ({}))
+  .handler(async ({ context }) => {
+    const { data: row, error } = await context.supabase
+      .from("lumina_queue_requests")
+      .select(REQUEST_COLUMNS)
+      .eq("requested_by", context.authUserId)
+      .in("status", ["queued", "running"])
+      .order("created_at", { ascending: false })
+      .limit(1)
+      .maybeSingle();
+
+    if (error) throw error;
+    return row ? mapRequest(row) : null;
+  });
+
 export const getLuminaJobStatus = createServerFn({ method: "POST" })
   .middleware([requireLinkaiUser])
   .validator((data: unknown) => {

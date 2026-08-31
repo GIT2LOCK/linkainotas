@@ -47,7 +47,7 @@ class ProcessingSummary:
 
 
 class ProcessingRegistry:
-    """JSON registry that prevents reprocessing already handled documents."""
+    """JSON registry that records processing attempts and outcomes."""
 
     def __init__(self, path: Path) -> None:
         self._path = path
@@ -148,11 +148,13 @@ class Processor:
         *,
         generate_excel: bool = False,
         excel_mode: str = "single_sheet",
+        ignore_duplicates: bool = False,
     ) -> ProcessingSummary:
         """Run the complete processing pipeline with optional Excel export."""
         return self.processar(
             generate_excel=generate_excel,
             excel_mode=excel_mode,
+            ignore_duplicates=ignore_duplicates,
         )
 
     def processar(
@@ -160,8 +162,13 @@ class Processor:
         *,
         generate_excel: bool = False,
         excel_mode: str = "single_sheet",
+        ignore_duplicates: bool = False,
     ) -> ProcessingSummary:
-        """Process every PDF and always generate its normalized XML."""
+        """Process every PDF and always generate its normalized XML.
+
+        Reprocessing is the default because each explicit run is a new user
+        request. Duplicate protection remains available as an opt-in setting.
+        """
         summary = ProcessingSummary()
         self._generated_xml_paths = []
         documents = self._storage.listar_arquivos()
@@ -176,7 +183,10 @@ class Processor:
             try:
                 local_pdf = self._storage.baixar_para_disco(remote_pdf)
 
-                if self._registry.is_processed(remote_pdf.path, local_pdf.sha256):
+                if ignore_duplicates and self._registry.is_processed(
+                    remote_pdf.path,
+                    local_pdf.sha256,
+                ):
                     summary.duplicated += 1
                     self._logger.info("Document already processed: %s", remote_pdf.path)
                     continue

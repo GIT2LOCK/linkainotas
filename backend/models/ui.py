@@ -58,7 +58,8 @@ class ProcessingOptions:
     download_path_label: str | None = None
     generate_excel: bool = False
     download_pdfs_locally: bool = True
-    ignore_duplicates: bool = True
+    # Reprocessing is allowed by default; skipping duplicates is opt-in.
+    ignore_duplicates: bool = False
     use_cache: bool = True
     detect_xml: bool = True
     use_ai_when_needed: bool = False
@@ -83,7 +84,7 @@ class ProcessingOptions:
             ),
             generate_excel=bool(payload.get("generateExcel", False)),
             download_pdfs_locally=bool(payload.get("downloadPdfsLocally", True)),
-            ignore_duplicates=bool(payload.get("ignoreDuplicates", True)),
+            ignore_duplicates=bool(payload.get("ignoreDuplicates", False)),
             use_cache=bool(payload.get("useCache", True)),
             detect_xml=bool(payload.get("detectXml", True)),
             use_ai_when_needed=bool(payload.get("useAiWhenNeeded", False)),

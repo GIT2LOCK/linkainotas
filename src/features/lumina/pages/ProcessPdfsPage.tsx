@@ -113,7 +113,7 @@ export function ProcessPdfsPage() {
   >({
     generateExcel: true,
     downloadPdfsLocally: true,
-    ignoreDuplicates: true,
+    ignoreDuplicates: false,
     useCache: true,
     detectXml: true,
     useAiWhenNeeded: false,
