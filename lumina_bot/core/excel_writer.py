@@ -5,7 +5,12 @@ from __future__ import annotations
 import re
 import shutil
 import unicodedata
-from datetime import datetime
+import os
+import posixpath
+import zipfile
+import xml.etree.ElementTree as ET
+from copy import deepcopy
+from datetime import date, datetime
 from pathlib import Path
 from typing import Any, Callable, Iterable, Literal
 
@@ -23,6 +28,16 @@ ExcelOutputMode = Literal["single_sheet", "multi_sheet", "one_file_per_pdf"]
 
 class ExcelWriter:
     """Write fiscal document rows to Excel workbooks."""
+
+    TEMPLATE_FILENAME = "Lote_de_Fatura_CEF_Consignado.xlsx"
+    TEMPLATE_SHEET = "Lançamentos"
+    TEMPLATE_HEADER_ROW = 2
+    TEMPLATE_DATA_ROW = 3
+    TEMPLATE_DATA_COLUMNS = 185
+    XML_NS = "http://schemas.openxmlformats.org/spreadsheetml/2006/main"
+    REL_NS = "http://schemas.openxmlformats.org/officeDocument/2006/relationships"
+    PACKAGE_REL_NS = "http://schemas.openxmlformats.org/package/2006/relationships"
+    XML_SPACE = "{http://www.w3.org/XML/1998/namespace}space"
 
     SUMMARY_COLUMNS = [
         "Arquivo",
@@ -127,7 +142,422 @@ class ExcelWriter:
             self.write_one_file_per_pdf(rows)
             return
 
-        self.write_structured(rows)
+        self.write_template(rows)
+
+    def write_template(self, notas: Iterable[NotaFiscal]) -> None:
+        """Fill the supplied accounting template without rebuilding its workbook.
+
+        The template contains formulas, named cells, validations and support tabs
+        required by the Lumina import.  Recreating it with a dataframe would lose
+        those details, so only values in the data rows of ``Lançamentos`` are
+        changed inside the original XLSX package.
+        """
+        rows = list(notas)
+
+        if not rows:
+            return
+
+        template_path = self._template_path()
+        if not template_path.is_file():
+            raise FileNotFoundError(
+                "Excel template not found. Set LINKAI_EXCEL_TEMPLATE_PATH or "
+                f"install {self.TEMPLATE_FILENAME} in lumina_bot/templates."
+            )
+
+        self._output_path.parent.mkdir(parents=True, exist_ok=True)
+        temporary_path = self._output_path.with_name(
+            f".{self._output_path.name}.template.tmp"
+        )
+
+        try:
+            self._fill_template(template_path, temporary_path, rows)
+            os.replace(temporary_path, self._output_path)
+        finally:
+            temporary_path.unlink(missing_ok=True)
+
+        self._logger.info(
+            "Template Excel generated: %s | rows=%s | template=%s",
+            self._output_path,
+            sum(len(nota.itens) or 1 for nota in rows),
+            template_path,
+        )
+
+    def _template_path(self) -> Path:
+        configured = os.getenv("LINKAI_EXCEL_TEMPLATE_PATH")
+        if configured:
+            return Path(configured).expanduser()
+
+        return Path(__file__).resolve().parent.parent / "templates" / self.TEMPLATE_FILENAME
+
+    def _fill_template(
+        self,
+        template_path: Path,
+        output_path: Path,
+        notas: list[NotaFiscal],
+    ) -> None:
+        namespace = {"m": self.XML_NS}
+        ET.register_namespace("", self.XML_NS)
+        ET.register_namespace("r", self.REL_NS)
+
+        with zipfile.ZipFile(template_path, "r") as source:
+            package = {name: source.read(name) for name in source.namelist()}
+
+        workbook_root = ET.fromstring(package["xl/workbook.xml"])
+        workbook_rels = ET.fromstring(package["xl/_rels/workbook.xml.rels"])
+        sheet_element = next(
+            sheet
+            for sheet in workbook_root.findall("m:sheets/m:sheet", namespace)
+            if sheet.attrib.get("name") == self.TEMPLATE_SHEET
+        )
+        relationship_id = sheet_element.attrib[f"{{{self.REL_NS}}}id"]
+        relationship = next(
+            rel
+            for rel in workbook_rels
+            if rel.attrib.get("Id") == relationship_id
+        )
+        target = relationship.attrib["Target"]
+        sheet_path = (
+            target.lstrip("/")
+            if target.startswith("/")
+            else posixpath.normpath(posixpath.join("xl", target))
+        )
+
+        sheet_root = ET.fromstring(package[sheet_path])
+        sheet_data = sheet_root.find("m:sheetData", namespace)
+        if sheet_data is None:
+            raise ValueError(f"Template sheet {self.TEMPLATE_SHEET!r} has no sheetData.")
+
+        template_rows = {
+            int(row.attrib["r"]): row
+            for row in sheet_data.findall("m:row", namespace)
+            if row.attrib.get("r", "").isdigit()
+        }
+        if self.TEMPLATE_DATA_ROW not in template_rows:
+            raise ValueError(
+                f"Template sheet {self.TEMPLATE_SHEET!r} has no data row "
+                f"{self.TEMPLATE_DATA_ROW}."
+            )
+
+        for row_number, row in template_rows.items():
+            if row_number >= self.TEMPLATE_DATA_ROW:
+                self._clear_row(row, namespace)
+
+        values = [{} for nota in notas for _item in (nota.itens or [None])]
+        # A document with multiple products uses one launch row per product.
+        # Installment values appear on the first row only to avoid duplicating
+        # the payable total when Lumina imports the rows.
+        value_index = 0
+        for nota in notas:
+            items = nota.itens or [None]
+            for item_index, item in enumerate(items):
+                values[value_index] = self._template_row_values(
+                    nota,
+                    item=item,
+                    include_installments=item_index == 0,
+                )
+                value_index += 1
+
+        last_template_row = max(template_rows)
+        for offset, row_values in enumerate(values):
+            row_number = self.TEMPLATE_DATA_ROW + offset
+            row = template_rows.get(row_number)
+            if row is None:
+                row = self._clone_template_row(
+                    template_rows[last_template_row],
+                    row_number,
+                    namespace,
+                )
+                sheet_data.append(row)
+            self._write_row_values(row, row_values, namespace)
+
+        package[sheet_path] = ET.tostring(sheet_root, encoding="utf-8", xml_declaration=True)
+
+        calc_pr = workbook_root.find("m:calcPr", namespace)
+        if calc_pr is None:
+            calc_pr = ET.SubElement(workbook_root, f"{{{self.XML_NS}}}calcPr")
+        calc_pr.set("calcMode", "auto")
+        calc_pr.set("fullCalcOnLoad", "1")
+        calc_pr.set("forceFullCalc", "1")
+        package["xl/workbook.xml"] = ET.tostring(
+            workbook_root,
+            encoding="utf-8",
+            xml_declaration=True,
+        )
+
+        with zipfile.ZipFile(output_path, "w", zipfile.ZIP_DEFLATED) as destination:
+            for name, content in package.items():
+                destination.writestr(name, content)
+
+    def _template_row_values(
+        self,
+        nota: NotaFiscal,
+        *,
+        item: Any | None = None,
+        include_installments: bool = True,
+    ) -> dict[str, Any]:
+        """Map normalized fiscal data to the model's fixed launch columns."""
+        extras = nota.outros_campos
+        amount = (
+            getattr(item, "valor_total", None)
+            if item is not None
+            else None
+        )
+        if amount is None:
+            amount = nota.valor_total or nota.valor_bruto
+
+        installments = nota.parcelas if include_installments else []
+        first_installment = installments[0] if installments else None
+        second_installment = installments[1] if len(installments) > 1 else None
+        item_code = getattr(item, "codigo", None) if item is not None else None
+        service_code = nota.codigo_servico
+
+        values: dict[str, Any] = {
+            "A": self._configured_or_extra(
+                extras,
+                "LINKAI_TEMPLATE_BILLING_CNPJ",
+                "cnpj_faturamento",
+                "cost_collector_client_cnpj",
+            ),
+            "B": self._configured_or_extra(
+                extras,
+                "LINKAI_TEMPLATE_BILLING_CLIENT",
+                "cliente_faturamento",
+                "cost_collector_client_trade_name",
+            ),
+            "C": self._extra_from_mapping(extras, "socio", "partner_name"),
+            "D": self._extra_from_mapping(extras, "cc", "codigo_cc", "centro_custo"),
+            "E": nota.prestador.cnpj or nota.prestador.cpf,
+            "F": nota.prestador.razao_social or nota.prestador.nome_fantasia,
+            "G": self._extra_from_mapping(
+                extras,
+                "codigo_fornecedor_lumina",
+                "cod_fornecedor_lumina",
+                "supplier_id",
+            ),
+            "H": nota.numero,
+            "I": nota.serie,
+            "J": self._date_value(nota.data_emissao),
+            "K": service_code,
+            "L": item_code or service_code,
+            "M": self._extra_from_mapping(
+                extras,
+                "alocacao_lumina",
+                "codigo_obra",
+                "project_task_id",
+            ),
+            "N": amount,
+            "O": self._date_value(first_installment.vencimento) if first_installment else None,
+            "Q": first_installment.valor if first_installment else None,
+            "R": None,
+            "S": first_installment.valor if first_installment else None,
+            "AC": self._date_value(second_installment.vencimento) if second_installment else None,
+            "AD": second_installment.valor if second_installment else None,
+            "AE": None,
+            "AF": second_installment.valor if second_installment else None,
+            "AP": 0,
+            "AQ": self._net_value(nota, amount),
+            "CE": nota.observacoes,
+        }
+
+        iss = nota.tributos.iss
+        is_nfe = nota.modelo == "55" or nota.tipo_documento == "NFE_DANFE_55"
+        if not is_nfe and (iss is not None or nota.tributos.base_calculo is not None):
+            values.update(
+                {
+                    "AR": self._extra_from_mapping(extras, "iss_tipo", "iss_retido"),
+                    "AS": self._extra_from_mapping(extras, "iss_codigo", "codigo_servico") or service_code,
+                    "AT": nota.tributos.base_calculo,
+                    "AU": nota.tributos.aliquota,
+                    "AV": iss,
+                    "AW": self._extra_from_mapping(extras, "iss_codigo_prefeitura", "codigo_prefeitura"),
+                    "AX": self._extra_from_mapping(extras, "iss_prefeitura", "prefeitura"),
+                    "AY": nota.municipio or nota.prestador.endereco.cidade,
+                    "AZ": self._date_value(self._extra_from_mapping(extras, "iss_data_pagamento", "data_pagamento_iss")),
+                }
+            )
+
+        for prefix, code_col, base_col, rate_col, value_col, date_col in (
+            ("inss", "BA", "BB", "BC", "BD", "BE"),
+            ("irrf", "BF", "BG", "BH", "BI", "BJ"),
+            ("pcc", "BK", "BL", "BM", "BN", "BO"),
+            ("pis", "BP", "BQ", "BR", "BS", "BT"),
+            ("cofins", "BU", "BV", "BW", "BX", "BY"),
+            ("csll", "BZ", "CA", "CB", "CC", "CD"),
+        ):
+            tax_value = self._tax_value(nota, prefix)
+            tax_base = self._extra_from_mapping(extras, f"{prefix}_base", f"{prefix}_base_value")
+            tax_rate = self._extra_from_mapping(extras, f"{prefix}_aliquota", f"{prefix}_rate")
+            tax_code = self._extra_from_mapping(extras, f"{prefix}_codigo", f"{prefix}_code")
+            tax_date = self._extra_from_mapping(extras, f"{prefix}_data_pagamento", f"{prefix}_due_date")
+            if any(value is not None for value in (tax_value, tax_base, tax_rate, tax_code, tax_date)):
+                values.update(
+                    {
+                        code_col: tax_code,
+                        base_col: tax_base,
+                        rate_col: tax_rate,
+                        value_col: tax_value,
+                        date_col: self._date_value(tax_date),
+                    }
+                )
+
+        allocations = extras.get("alocacoes") or extras.get("pro_ratings") or []
+        if isinstance(allocations, list):
+            for index, allocation in enumerate(allocations[:50]):
+                if not isinstance(allocation, dict):
+                    continue
+                id_column = self._column_after("CG", index * 2)
+                value_column = self._column_after("CG", index * 2 + 1)
+                values[id_column] = allocation.get("id") or allocation.get("project_task_id")
+                values[value_column] = allocation.get("value") or allocation.get("valor")
+
+        return {column: value for column, value in values.items() if value is not None}
+
+    def _tax_value(self, nota: NotaFiscal, prefix: str) -> Any:
+        if prefix == "pcc":
+            return self._extra_from_mapping(
+                nota.outros_campos,
+                "pcc",
+                "pcc_value",
+                "pis_cofins",
+            )
+        return getattr(nota.tributos, prefix, None)
+
+    def _net_value(self, nota: NotaFiscal, amount: Any) -> Any:
+        if amount is None:
+            return None
+        deductions = [nota.tributos.iss]
+        deductions.extend(
+            self._tax_value(nota, prefix)
+            for prefix in ("inss", "irrf", "pcc", "pis", "cofins", "csll")
+        )
+        return float(amount) - sum(float(value) for value in deductions if isinstance(value, (int, float)))
+
+    @staticmethod
+    def _extra_from_mapping(mapping: dict[str, Any], *keys: str) -> Any:
+        for key in keys:
+            value = mapping.get(key)
+            if value is not None and value != "":
+                return value
+        return None
+
+    @classmethod
+    def _configured_or_extra(cls, mapping: dict[str, Any], *keys: str) -> Any:
+        for key in keys:
+            if key.startswith("LINKAI_"):
+                value = os.getenv(key)
+                if value:
+                    return value
+            else:
+                value = mapping.get(key)
+                if value is not None and value != "":
+                    return value
+        return None
+
+    @staticmethod
+    def _date_value(value: Any) -> date | datetime | None:
+        if value is None or value == "":
+            return None
+        if isinstance(value, (date, datetime)):
+            return value
+        text = str(value).strip()
+        try:
+            return datetime.fromisoformat(text.replace("Z", "+00:00"))
+        except ValueError:
+            match = re.search(r"(\d{2})/(\d{2})/(\d{4})", text)
+            if match:
+                day, month, year = match.groups()
+                return date(int(year), int(month), int(day))
+        return None
+
+    @staticmethod
+    def _column_after(start: str, offset: int) -> str:
+        number = 0
+        for character in start:
+            number = number * 26 + ord(character.upper()) - 64
+        number += offset
+        result = ""
+        while number:
+            number, remainder = divmod(number - 1, 26)
+            result = chr(65 + remainder) + result
+        return result
+
+    @classmethod
+    def _clear_row(cls, row: ET.Element, namespace: dict[str, str]) -> None:
+        for cell in row.findall("m:c", namespace):
+            cell.attrib.pop("t", None)
+            for child in list(cell):
+                if child.tag.rsplit("}", 1)[-1] in {"f", "v", "is"}:
+                    cell.remove(child)
+
+    @classmethod
+    def _clone_template_row(
+        cls,
+        source_row: ET.Element,
+        row_number: int,
+        namespace: dict[str, str],
+    ) -> ET.Element:
+        row = deepcopy(source_row)
+        row.attrib["r"] = str(row_number)
+        for cell in row.findall("m:c", namespace):
+            reference = cell.attrib.get("r", "")
+            column = re.sub(r"\d+$", "", reference)
+            cell.attrib["r"] = f"{column}{row_number}"
+        cls._clear_row(row, namespace)
+        return row
+
+    @classmethod
+    def _write_row_values(
+        cls,
+        row: ET.Element,
+        values: dict[str, Any],
+        namespace: dict[str, str],
+    ) -> None:
+        cells = {
+            re.sub(r"\d+$", "", cell.attrib.get("r", "")): cell
+            for cell in row.findall("m:c", namespace)
+        }
+        for column, value in values.items():
+            cell = cells.get(column)
+            if cell is None:
+                cell = ET.SubElement(row, f"{{{cls.XML_NS}}}c", {"r": f"{column}{row.attrib['r']}"})
+                cells[column] = cell
+            cls._set_cell_value(cell, value)
+
+    @classmethod
+    def _set_cell_value(cls, cell: ET.Element, value: Any) -> None:
+        cell.attrib.pop("t", None)
+        for child in list(cell):
+            if child.tag.rsplit("}", 1)[-1] in {"f", "v", "is"}:
+                cell.remove(child)
+
+        if value is None:
+            return
+
+        if isinstance(value, (datetime, date)):
+            if isinstance(value, datetime):
+                timestamp = value.replace(tzinfo=None)
+            else:
+                timestamp = datetime.combine(value, datetime.min.time())
+            value = (timestamp - datetime(1899, 12, 30)).total_seconds() / 86400
+
+        if isinstance(value, bool):
+            cell.attrib["t"] = "b"
+            serialized = "1" if value else "0"
+            value_node = ET.SubElement(cell, f"{{{cls.XML_NS}}}v")
+            value_node.text = serialized
+            return
+
+        if isinstance(value, (int, float)) and not isinstance(value, bool):
+            value_node = ET.SubElement(cell, f"{{{cls.XML_NS}}}v")
+            value_node.text = f"{value:.15g}"
+            return
+
+        cell.attrib["t"] = "inlineStr"
+        inline = ET.SubElement(cell, f"{{{cls.XML_NS}}}is")
+        text_node = ET.SubElement(inline, f"{{{cls.XML_NS}}}t")
+        text_node.text = str(value)
+        if text_node.text[:1].isspace() or text_node.text[-1:].isspace():
+            text_node.set(cls.XML_SPACE, "preserve")
 
     def write_structured(self, notas: Iterable[NotaFiscal]) -> None:
         """Write the canonical workbook tabs without flattening child records."""
@@ -199,35 +629,8 @@ class ExcelWriter:
         self._logger.info("Structured Excel updated: %s | sheets=%s", path, len(frames))
 
     def write_single_sheet(self, notas: Iterable[NotaFiscal]) -> None:
-        """Append all documents to a single sheet."""
-        rows = [self._summary_row(nota) for nota in notas]
-
-        if not rows:
-            return
-
-        self._output_path.parent.mkdir(parents=True, exist_ok=True)
-        new_frame = pd.DataFrame(rows, columns=self.SUMMARY_COLUMNS)
-
-        if self._output_path.is_file():
-            try:
-                existing_frame = pd.read_excel(self._output_path, sheet_name="notas")
-            except ValueError:
-                self._backup_incompatible_workbook()
-                existing_frame = pd.DataFrame(columns=self.SUMMARY_COLUMNS)
-
-            if self._is_compatible_summary_frame(existing_frame):
-                frame = pd.concat([existing_frame, new_frame], ignore_index=True)
-            else:
-                self._backup_incompatible_workbook()
-                frame = new_frame
-        else:
-            frame = new_frame
-
-        with pd.ExcelWriter(self._output_path, engine="openpyxl") as writer:
-            frame.to_excel(writer, index=False, sheet_name="notas")
-
-        self._format_workbook()
-        self._logger.info("Excel updated: %s | new rows=%s", self._output_path, len(rows))
+        """Write all documents using the fixed accounting template."""
+        self.write_template(notas)
 
     def write_multi_sheet(
         self,
@@ -278,7 +681,7 @@ class ExcelWriter:
             file_path = self._unique_file_path(output_dir / file_name)
 
             temporary_writer = ExcelWriter(file_path)
-            temporary_writer.write_structured([nota])
+            temporary_writer.write_template([nota])
 
         self._logger.info("One-file-per-PDF Excel export completed: %s", output_dir)
 

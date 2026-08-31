@@ -70,13 +70,36 @@ A tela de processamento concentra a escolha da origem, a leitura dos documentos,
 - O PDF é convertido sempre para XML normalizado no formato `linkai.documento-fiscal.v1`.
 - Esse XML é um formato interno estruturado do LINKAI; ele não substitui o XML oficial autorizado pela SEFAZ.
 - A geração de Excel é opcional e pode ser ativada pelo usuário.
-- A exportação organiza documentos, itens, parcelas, tributos e validações em abas próprias.
+- O modo padrão preenche o modelo contábil `Lote_de_Fatura_CEF_Consignado.xlsx` sem recriar o arquivo, preservando as cinco abas, cabeçalhos, fórmulas, validações e estilos originais.
+- Cada item fiscal ocupa uma linha na aba `Lançamentos`; número, série, datas, valores, parcelas e tributos extraídos são gravados nas colunas correspondentes.
 - Quando solicitado no ambiente web, o arquivo é entregue para download no navegador do usuário.
+
+O modelo fica versionado em `lumina_bot/templates/Lote_de_Fatura_CEF_Consignado.xlsx`.
+Para usar outra cópia sem alterar o repositório, configure
+`LINKAI_EXCEL_TEMPLATE_PATH` no ambiente do serviço Python. Campos que não
+existem no PDF, como centro de custo ou código interno do fornecedor, ficam
+vazios e podem ser fornecidos por `NotaFiscal.outros_campos` ou pelas variáveis
+`LINKAI_TEMPLATE_BILLING_CNPJ` e `LINKAI_TEMPLATE_BILLING_CLIENT`.
+
+PDFs digitalizados passam por OCR quando não possuem camada de texto. Na
+máquina de processamento, instale o Tesseract com português e as dependências
+Python:
+
+```bash
+sudo apt update
+sudo apt install -y tesseract-ocr tesseract-ocr-por
+python -m pip install -r lumina_bot/requirements.txt
+```
+
+O idioma padrão é `por+eng`. Ele pode ser ajustado com `LINKAI_OCR_LANG` e a
+resolução de renderização com `LINKAI_OCR_DPI`.
 
 ### Automação Lumina
 
 - Execução somente mediante ação explícita do usuário.
 - Fila distribuída no Supabase: a primeira máquina Windows livre reserva o próximo atendimento.
+- Solicitações numeradas por usuário, com itens, status, tentativas, reserva e histórico permanente.
+- Reserva atômica com `FOR UPDATE SKIP LOCKED`, evitando que duas máquinas executem o mesmo item.
 - Serviço Python desacoplado da interface React.
 - Comunicação por API FastAPI quando o processamento estiver hospedado em outra máquina.
 - Compatibilidade com execução local e com serviço publicado na rede.
@@ -171,6 +194,75 @@ O serviço FastAPI fica em `backend/api/server.py` e expõe os principais endpoi
 | `POST` | `/uploads/pdfs` | Processar PDFs enviados pela interface |
 
 Em ambiente publicado, o frontend deve receber a URL pública do serviço pela variável `LINKAI_PROCESSING_URL`. Em produção, prefira HTTPS para evitar bloqueio de conteúdo misto pelo navegador.
+
+## Fila distribuída do Lumina
+
+O lançamento de notas não depende de o usuário escolher uma máquina ou conhecer
+um IP. A aplicação cria uma solicitação em `lumina_queue_requests` e seus itens
+em `lumina_jobs`. Os workers Windows consultam a fila e reservam atomicamente o
+próximo item disponível.
+
+Quando um item termina, o banco grava o resultado em `lumina_queue_logs`,
+atualiza o progresso da solicitação-pai e remove o item da fila em uma única
+transação. Se um worker cair, `leased_until` expira e outra máquina pode tentar
+assumir o item, respeitando o limite de tentativas. Itens do mesmo usuário são
+processados sequencialmente; usuários diferentes podem ser atendidos por
+máquinas diferentes ao mesmo tempo.
+
+### Migrations do banco
+
+No ambiente sincronizado com o Lovable, confirme no histórico do Supabase a
+aplicação destes arquivos, nesta ordem:
+
+```text
+supabase/migrations/20260819130000_create_lumina_jobs_queue.sql
+supabase/migrations/20260827161250_*.sql
+supabase/migrations/20260827161322_*.sql
+```
+
+Os dois últimos nomes possuem um sufixo gerado pelo Lovable. O arquivo
+`20260827161250` cria a evolução da fila, e `20260827161322` restringe as
+funções internas ao `service_role` e remove o acesso de visitantes.
+
+Não aplique também `20260827120000_add_lumina_request_batches.sql` no mesmo
+banco: essa é a versão local anterior da mesma evolução.
+
+### Worker Windows
+
+O worker é iniciado junto com a API FastAPI em cada máquina que possui o
+Lumina instalado. Configure o mesmo projeto Supabase em todas as máquinas, mas
+use um `LINKAI_WORKER_ID` diferente para cada uma:
+
+```env
+SUPABASE_URL=https://seu-projeto.supabase.co
+SUPABASE_SERVICE_ROLE_KEY=chave-de-servico
+LINKAI_QUEUE_WORKER_ENABLED=true
+LINKAI_WORKER_ID=lumina-maquina-01
+LINKAI_QUEUE_POLL_SECONDS=3
+LINKAI_QUEUE_LEASE_SECONDS=300
+```
+
+Inicialização:
+
+```powershell
+cd C:\LinkAI
+& ".\lumina_bot\.venv\Scripts\python.exe" `
+  -m uvicorn backend.api.server:app `
+  --host 0.0.0.0 `
+  --port 8766
+```
+
+As duas máquinas podem usar a porta local `8766`; o banco distribui os itens
+entre elas. Para reiniciar, pressione `Ctrl+C` no terminal do Uvicorn e execute
+o comando novamente. Verifique o estado com:
+
+```powershell
+curl.exe --max-time 5 http://127.0.0.1:8766/health
+```
+
+A resposta deve indicar `queue_worker.enabled=true`, o identificador da máquina
+e `queue_worker.running=true`. O manual completo está em
+[`docs/lumina-queue.md`](docs/lumina-queue.md).
 
 ## Configuração
 

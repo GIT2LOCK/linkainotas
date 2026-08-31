@@ -3,6 +3,7 @@ import { PlayCircle } from "lucide-react";
 import { SectionHeader } from "../components/SectionHeader";
 import {
   enqueueLuminaLaunch,
+  getActiveLuminaRequest,
   getLuminaJobStatus,
   type LuminaJob,
 } from "../services/lumina-queue.functions";
@@ -10,9 +11,29 @@ import {
 export function LaunchNotesPage() {
   const [job, setJob] = useState<LuminaJob | null>(null);
   const [loading, setLoading] = useState(false);
+  const [restoring, setRestoring] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const jobId = job?.id;
   const jobStatus = job?.status;
+
+  useEffect(() => {
+    let cancelled = false;
+
+    getActiveLuminaRequest({ data: {} })
+      .then((activeJob) => {
+        if (!cancelled && activeJob) setJob(activeJob);
+      })
+      .catch(() => {
+        // The request can still be created normally if the optional restore fails.
+      })
+      .finally(() => {
+        if (!cancelled) setRestoring(false);
+      });
+
+    return () => {
+      cancelled = true;
+    };
+  }, []);
 
   useEffect(() => {
     if (!jobId || !["queued", "running"].includes(jobStatus ?? "")) return;
@@ -77,6 +98,9 @@ export function LaunchNotesPage() {
           : job?.status === "failed"
             ? (job.message ?? "Não foi possível concluir o atendimento.")
             : null;
+  const progressMessage = job
+    ? `Fila #${job.queueNumber} · ${job.completedItems}/${job.totalItems} item(ns) concluído(s)`
+    : null;
 
   return (
     <div className="page-stack">
@@ -91,18 +115,21 @@ export function LaunchNotesPage() {
         <p>Abra o Lumina e acompanhe a execução do lançamento.</p>
         <button
           className="button primary"
-          disabled={loading || isActive}
+          disabled={loading || restoring || isActive}
           onClick={requestLaunch}
           type="button"
         >
-          {loading
-            ? "Entrando na fila"
-            : job?.status === "queued"
-              ? "Aguardando máquina"
-              : job?.status === "running"
-                ? "Em execução"
-                : "Iniciar lançamento"}
+          {restoring
+            ? "Consultando fila"
+            : loading
+              ? "Entrando na fila"
+              : job?.status === "queued"
+                ? "Aguardando máquina"
+                : job?.status === "running"
+                  ? "Em execução"
+                  : "Iniciar lançamento"}
         </button>
+        {progressMessage ? <p className="queue-progress">{progressMessage}</p> : null}
         {statusMessage ? (
           <div className={`alert ${statusClass}`} aria-live="polite">
             {statusMessage}

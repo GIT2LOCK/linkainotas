@@ -116,6 +116,42 @@ Chave Acesso: Aguardando retorno do Ambiente Nacional"""
         self.assertIsNone(nota.chave)
         self.assertEqual(nota.chave_acesso_raw, "Aguardando retorno do Ambiente Nacional")
 
+    def test_parses_cotia_footer_sections_without_cross_contamination(self) -> None:
+        text = """PREFEITURA DO MUNICÍPIO DE COTIA
+NOTA FISCAL DE SERVIÇOS ELETRÔNICA
+Nº Nota: 28275
+RPS: 29211
+Data de Emissão: 04/AGO/2026
+Competência: 08/2026
+Código de Verificação
+45135827YX
+PRESTADOR DE SERVIÇOS
+Nome/Razão Social: VOTORANTIM CIMENTOS S.A.
+CPF/CNPJ: 01.637.895/0038-24
+TOMADOR DE SERVIÇOS
+Nome/Razão Social: STAN 38 PARTICIPACOES LTDA
+CPF/CNPJ: 42.610.240/0001-58
+DISCRIMINAÇÃO DOS SERVIÇOS
+O ISSQN desta NFS-e será recolhido pelo TOMADOR MENCIONADO ACIMA.
+INFORMAÇÕES COMPLEMENTARES
+Servico de Concretagem - Local da Obra: AVENIDA PEDROSO DE MORAIS, 919 PINHEIROS - SAO PAULO / SP Codigo CEI: 900273925876 CNO/CEI: 90.027.39258/76 SFOBRAS: 2026/0001227-2
+Vlr Outras Retenções (R$)
+Código de Verificação:
+45135827YX
+Chave Acesso:
+Aguardando retorno do Ambiente Nacional"""
+        nota = NfseCotiaParser().parse(self._context(text, "NFS-e 28275 - Votorantim Cimentos.pdf"))
+        nfse = nota.outros_campos["nfse"]
+        additional = nota.outros_campos["dados_adicionais"]
+        self.assertEqual(nfse["servico_descricao"], "Servico de Concretagem")
+        self.assertEqual(nfse["local_obra"], "AVENIDA PEDROSO DE MORAIS, 919 PINHEIROS - SAO PAULO / SP")
+        self.assertEqual(nfse["codigo_cei"], "900273925876")
+        self.assertEqual(nfse["cno_cei"], "90.027.39258/76")
+        self.assertEqual(additional["informacoes_complementares_raw"].splitlines(), ["Servico de Concretagem - Local da Obra: AVENIDA PEDROSO DE MORAIS, 919 PINHEIROS - SAO PAULO / SP Codigo CEI: 900273925876 CNO/CEI: 90.027.39258/76 SFOBRAS: 2026/0001227-2"])
+        self.assertEqual(additional["outras_informacoes_raw"], "O ISSQN desta NFS-e será recolhido pelo TOMADOR MENCIONADO ACIMA.")
+        self.assertEqual(nota.outros_campos["codigo_verificacao_rodape"], "45135827YX")
+        self.assertTrue(any(item.regra == "nfse.codigo_verificacao_repetido_coincide" and item.status == "ok" for item in nota.validacoes))
+
     def test_parses_fhoenix_multiline_items_and_ocr_metadata(self) -> None:
         text = """DANFE
 Documento Auxiliar da Nota Fiscal Eletrônica

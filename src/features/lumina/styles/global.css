@@ -1922,6 +1922,12 @@
   max-width: 400px;
 }
 
+.launch-panel .queue-progress {
+  margin: 0;
+  color: var(--muted);
+  font-size: 11px;
+}
+
 .log-viewer {
   min-height: min(420px, calc(100vh - 174px));
   max-height: none;

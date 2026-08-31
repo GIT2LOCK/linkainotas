@@ -443,6 +443,23 @@ class NfeDanfe55Parser(BaseParser):
                 if email_match:
                     nota.tomador.email = email_match.group(1)
             nota.valor_liquido = nota.valor_total
+            additional_blocks = re.findall(
+                r"(?is)dados\s+adicionais.*?(?=impresso\s+em|$)",
+                text,
+            )
+            if additional_blocks:
+                raw = re.sub(r"\s+", " ", max(additional_blocks, key=len)).strip()
+                nota.observacoes = nota.observacoes or raw
+                nota.outros_campos["informacoes_complementares_raw"] = raw
+                nota.outros_campos.setdefault("dados_adicionais", {})[
+                    "informacoes_complementares_raw"
+                ] = raw
+                pedido = re.search(r"(?i)pedido\s*:\s*([^\n]+?)\s+email\s+do", raw)
+                lacre = re.search(r"(?i)lacre\s*:\s*([^\s]+)", raw)
+                if pedido:
+                    nota.outros_campos["pedido"] = pedido.group(1).strip()
+                if lacre:
+                    nota.outros_campos["lacre"] = lacre.group(1).strip()
         else:
             nota.outros_campos["data_saida"] = None
             nota.hora_emissao = None
@@ -889,6 +906,33 @@ class NfeDanfe55Parser(BaseParser):
         )
         match = re.search(pattern, text)
         if not match:
+            match = re.search(
+                r"(?is)fatura\s*/?\s*duplicata.*?"
+                r"num\.?\s*([0-9.]+).*?"
+                r"(?:venc|vene)\.?\s*(\d{2}/\d{2}/\d{4}).*?"
+                rf"valor\s*(?:r\$|rs)?\s*({money_pattern})",
+                text,
+            )
+        if not match and nota.parcelas:
+            parcela = nota.parcelas[0]
+            nota.outros_campos["fatura"] = {
+                "numero": parcela.numero,
+                "valor_original": nota.valor_total or parcela.valor,
+                "valor_desconto": 0.0,
+                "valor_liquido": nota.valor_total or parcela.valor,
+            }
+            return
+        if not match:
+            return
+        if match.lastindex == 3:
+            number, _date, amount = match.groups()
+            parsed_amount = self._ocr_decimal(amount)
+            nota.outros_campos["fatura"] = {
+                "numero": number.replace(".", ""),
+                "valor_original": parsed_amount,
+                "valor_desconto": 0.0,
+                "valor_liquido": parsed_amount,
+            }
             return
         number, original, discount, liquid = match.groups()
         nota.outros_campos["fatura"] = {

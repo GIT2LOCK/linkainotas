@@ -73,13 +73,14 @@ class NfseCotiaParser(BaseParser):
         nota.competencia = self._competencia(competencia_raw)
         record_field(nota, "competencia", nota.competencia, raw=competencia_raw, page=1)
 
-        verification_values = [
-            value for value in re.findall(
-                r"(?im)c[oó]digo de verifica[cç][aã]o\s*[:\-]?\s*([A-Z0-9-]{6,})",
-                text,
-            )
-            if normalize_text(value) not in {"competencia", "compet"}
-        ]
+        verification_values: list[str] = []
+        for index, line in enumerate(lines):
+            if "codigo de verificacao" not in normalize_text(line):
+                continue
+            for candidate in lines[index + 1:index + 10]:
+                compact_candidate = re.sub(r"\s+", "", candidate).strip(" :;-= ")
+                if re.fullmatch(r"(?=.*[0-9])(?=.*[A-Za-z])[A-Za-z0-9-]{6,}", compact_candidate):
+                    verification_values.append(compact_candidate)
         verification = self._real_value(
             self._word_value(words, "codigo de verificacao")
             or (verification_values[0] if verification_values else None)
@@ -87,7 +88,7 @@ class NfseCotiaParser(BaseParser):
         )
         nota.autorizacao = verification
         nota.outros_campos["codigo_verificacao"] = verification
-        if verification_values:
+        if len(verification_values) > 1:
             nota.outros_campos["codigo_verificacao_rodape"] = verification_values[-1]
         record_field(nota, "codigo_verificacao", verification, raw=verification, page=1)
 
@@ -180,23 +181,47 @@ class NfseCotiaParser(BaseParser):
         raw = "\n".join(raw_lines).strip()
         normalized = " ".join(raw_lines).strip() or None
         nota.discriminacao = normalized
-        nota.descricao_servico = self._match_value(raw, r"servi[cç]o(?:s)?\s*(?:de)?\s*[:=-]?\s*([^\n]+)") or normalized
+
+        first_line = raw_lines[0] if raw_lines else ""
+        service_description = re.split(
+            r"\s+-\s+local\s+da\s+obra\s*:",
+            first_line,
+            maxsplit=1,
+            flags=re.IGNORECASE,
+        )[0].strip()
+        nota.descricao_servico = service_description or normalized
+        local_obra = self._match_value(
+            raw,
+            r"local\s+da\s+obra\s*:\s*(.*?)(?=\s+codigo\s+cei\s*:|\s+cno\s*/?\s*cei\s*:|$)",
+        )
+        codigo_cei = self._match_value(raw, r"codigo\s+cei\s*[:=-]?\s*([0-9]+)")
+        cno_cei = self._match_value(
+            raw,
+            r"(?:cno\s*/?\s*cei|cei\s*/?\s*cno)\s*[:=-]?\s*([0-9./-]+)",
+        )
+        cno_cei = cno_cei or self._match_value(raw, r"cno\s*[:=-]?\s*([0-9./-]+)")
+        sfo_bras = self._match_value(raw, r"sf[oó]bras?\s*[:=-]?\s*([A-Z0-9./-]+)")
         nota.outros_campos.setdefault("nfse", {})
         nota.outros_campos["nfse"].update({
             "discriminacao_servicos_raw": raw or None,
             "discriminacao_servicos": normalized,
             "descricao_linhas": raw_lines,
             "servico_descricao": nota.descricao_servico,
+            "local_obra": local_obra,
+            "codigo_cei": codigo_cei,
+            "cno_cei": cno_cei,
+            "sfo_bras": sfo_bras,
         })
-        nota.codigo_cei_cno = self._match_value(raw, r"(?:cno\s*/?\s*cei|cei\s*/?\s*cno)\s*[:=-]?\s*([0-9./-]+)")
+        nota.codigo_cei_cno = cno_cei
         nota.codigo_cei_cno = nota.codigo_cei_cno or self._match_value(raw, r"codigo\s+cei\s*[:=-]?\s*([0-9./-]+)")
         nota.codigo_obra = self._match_value(raw, r"(?:c[oó]digo da obra)\s*[:=-]?\s*([A-Z0-9./-]+)")
-        nota.sfo_bras = self._match_value(raw, r"sf[oó]bras?\s*[:=-]?\s*([A-Z0-9./-]+)")
+        nota.sfo_bras = sfo_bras
         approximate = self._match_value(raw, r"valor aproximado dos tributos?\s*[:=-]?\s*(?:(?:R\$|RS)\s*)?([0-9.,]+)")
         percentage = self._match_value(raw, r"valor aproximado dos tributos?.*?\(?\s*([0-9]+[,.][0-9]+)\s*%\)?")
         nota.tributos.valor_aproximado = decimal(approximate)
         nota.valor_aproximado_tributos_raw = approximate
         nota.outros_campos["tributos_aproximados"] = {"raw": approximate, "percentual": decimal(percentage)}
+        nota.outros_campos["nfse"]["percentual_aproximado_tributos"] = decimal(percentage)
 
     def _parse_totals_and_taxes(
         self,
@@ -287,8 +312,29 @@ class NfseCotiaParser(BaseParser):
         record_field(nota, "valor_liquido", nota.valor_liquido, raw=liquid_raw, page=1)
 
     def _parse_additional(self, nota: NotaFiscal, lines: list[str], text: str) -> None:
-        complement = self._section(lines, "informacoes complementares", "outras informacoes")
-        other = self._section(lines, "outras informacoes", None)
+        # Cotia's PDF text order places the visual footer sections after the
+        # tax table. Use the nearby section anchors instead of consuming the
+        # entire remainder of the page as one block.
+        discrimination_index = self._find(lines, "discriminacao dos servicos")
+        complement_index = self._find(
+            lines,
+            "informacoes complementares",
+            start=(discrimination_index + 1) if discrimination_index is not None else 0,
+        )
+        tax_index = self._find(
+            lines,
+            "vlr outras retencoes",
+            start=(complement_index + 1) if complement_index is not None else 0,
+        )
+        if discrimination_index is not None and complement_index is not None and complement_index > discrimination_index:
+            other = lines[discrimination_index + 1:complement_index]
+        else:
+            other = self._section(lines, "outras informacoes", None)
+        if complement_index is not None:
+            complement_end = tax_index if tax_index is not None and tax_index > complement_index else len(lines)
+            complement = lines[complement_index + 1:complement_end]
+        else:
+            complement = self._section(lines, "informacoes complementares", "outras informacoes")
         nota.outros_campos["dados_adicionais"] = {
             "informacoes_complementares_raw": "\n".join(complement) or None,
             "outras_informacoes_raw": "\n".join(other) or None,

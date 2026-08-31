@@ -5,6 +5,17 @@ O app publicado no Lovable roda o frontend e as server functions em ambiente web
 - Processamento de documentos: PDF, XML, leitura fiscal, geracao de planilhas e historico. Nao precisa abrir o Lumina.
 - Automacao Lumina: abertura do programa Windows e lancamento de notas. Precisa de uma maquina Windows com Lumina instalado.
 
+## Portas e responsabilidades
+
+| Serviço | Máquina | Porta | Função |
+| --- | --- | --- | --- |
+| API de processamento | Ubuntu ou servidor Python | `8765` | PDF, XML, Excel e arquivos |
+| Worker do Lumina | Cada máquina Windows | `8766` | Fila e automação do ERP Lumina |
+
+A porta `8766` é local de cada máquina Windows. Todas podem usar o mesmo número
+porque possuem endereços IP diferentes. O usuário não acessa diretamente essas
+máquinas: ele cria uma solicitação no banco e a primeira máquina livre a assume.
+
 ## Processamento de documentos
 
 Durante o desenvolvimento na rede local, o servidor web deve acessar a API Python
@@ -49,12 +60,21 @@ Essa API executa `/uploads/documents` e `/invoke` para acoes como:
 
 ## Lancamento no Lumina
 
-O lançamento atual usa a fila `public.lumina_jobs` no Supabase. O Lovable não precisa
-conhecer as URLs ou portas das máquinas Windows e o usuário não escolhe executor.
+O lançamento usa as tabelas `public.lumina_queue_requests`,
+`public.lumina_jobs` e `public.lumina_queue_logs` no Supabase. O Lovable não
+precisa conhecer as URLs ou portas das máquinas Windows e o usuário não escolhe
+executor.
 
-Aplique a migração:
+Confirme no histórico do Supabase estas migrations, nesta ordem:
 
 `supabase/migrations/20260819130000_create_lumina_jobs_queue.sql`
+
+`supabase/migrations/20260827161250_*.sql`
+
+`supabase/migrations/20260827161322_*.sql`
+
+Os dois últimos arquivos foram gerados pelo Lovable. Não aplique a migration
+local anterior `20260827120000_add_lumina_request_batches.sql` no mesmo banco.
 
 Na aplicação publicada, mantenha as variáveis normais de sessão do Supabase já
 configuradas. Não é necessário definir `LINKAI_LUMINA_URL` ou
@@ -77,11 +97,26 @@ nas duas máquinas, permanecer somente no backend e nunca ser versionada.
 Inicie a API em cada máquina:
 
 ```powershell
-.\\lumina_bot\\.venv\\Scripts\\python.exe -m uvicorn backend.api.server:app --host 0.0.0.0 --port 8766
+.\lumina_bot\.venv\Scripts\python.exe -m uvicorn backend.api.server:app --host 0.0.0.0 --port 8766
 ```
 
 O worker inicia automaticamente com a API e consulta a fila. Confira em
 `/health` se `queue_worker.running` está como `true`.
+
+Para reiniciar, pressione `Ctrl+C` no terminal do Uvicorn e execute o comando
+novamente. Se o terminal não estiver disponível:
+
+```powershell
+Get-CimInstance Win32_Process |
+  Where-Object { $_.CommandLine -match "uvicorn.*8766" } |
+  Select-Object ProcessId,Name,CommandLine
+
+Stop-Process -Id NUMERO_DO_PID
+```
+
+O `LINKAI_WORKER_ID` deve ser único, por exemplo `lumina-maquina-01` e
+`lumina-maquina-02`. Em caso de falha, a reserva expira e outro worker pode
+assumir a solicitação.
 
 O caminho antigo de chamada direta `lumina.start` continua disponível apenas
 para compatibilidade com clientes legados; a tela atual de lançamento usa
