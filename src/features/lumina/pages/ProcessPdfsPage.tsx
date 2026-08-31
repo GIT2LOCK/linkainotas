@@ -190,14 +190,20 @@ export function ProcessPdfsPage() {
       selectedBrowserFiles.length > 0
     ) {
       try {
+        const allowed = await ensureDirectoryWriteAccess(browserDownloadDirectory);
+
+        if (!allowed) {
+          throw new Error("permission-denied");
+        }
+
         await copyBrowserFilesToDirectory(selectedBrowserFiles, browserDownloadDirectory);
       } catch {
-        setSelectionError(
-          "Não foi possível salvar os documentos na pasta escolhida pelo navegador.",
+        setSaveNotice(
+          "Não foi possível copiar os documentos originais para a pasta escolhida. O processamento continuou e a planilha será salva normalmente.",
         );
-        return;
       }
     }
+
 
     try {
       const result = await action.run({
@@ -259,6 +265,7 @@ export function ProcessPdfsPage() {
 
     try {
       const directory = await window.showDirectoryPicker();
+      await ensureDirectoryWriteAccess(directory);
       setBrowserDownloadDirectory(directory);
       setDownloadPath(null);
       setDownloadPathLabel(`Pasta escolhida no navegador: ${directory.name}`);
@@ -266,6 +273,7 @@ export function ProcessPdfsPage() {
       setSelectionError(selectionDialogError(error));
     }
   }
+
 
   async function selectFolder() {
     setSelectionError(null);
