@@ -190,14 +190,20 @@ export function ProcessPdfsPage() {
       selectedBrowserFiles.length > 0
     ) {
       try {
+        const allowed = await ensureDirectoryWriteAccess(browserDownloadDirectory);
+
+        if (!allowed) {
+          throw new Error("permission-denied");
+        }
+
         await copyBrowserFilesToDirectory(selectedBrowserFiles, browserDownloadDirectory);
       } catch {
-        setSelectionError(
-          "Não foi possível salvar os documentos na pasta escolhida pelo navegador.",
+        setSaveNotice(
+          "Não foi possível copiar os documentos originais para a pasta escolhida. O processamento continuou e a planilha será salva normalmente.",
         );
-        return;
       }
     }
+
 
     try {
       const result = await action.run({
