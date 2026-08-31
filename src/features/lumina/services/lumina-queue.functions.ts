@@ -7,29 +7,50 @@ export type LuminaJobStatus = "queued" | "running" | "succeeded" | "failed" | "c
 
 export type LuminaJob = {
   id: string;
+  queueNumber: number | null;
   status: LuminaJobStatus;
   message: string | null;
   workerId: string | null;
+  totalItems: number;
+  completedItems: number;
+  failedItems: number;
+  canceledItems: number;
   createdAt: string;
   startedAt: string | null;
   finishedAt: string | null;
 };
 
-type LuminaJobRow = Database["public"]["Tables"]["lumina_jobs"]["Row"];
+type RequestRow = Database["public"]["Tables"]["lumina_queue_requests"]["Row"];
 
-const JOB_COLUMNS = "id, status, message, worker_id, created_at, started_at, finished_at";
+const REQUEST_COLUMNS =
+  "id, queue_number, status, message, total_items, completed_items, failed_items, canceled_items, created_at, started_at, finished_at";
 
-function mapJob(
-  row: Pick<
-    LuminaJobRow,
-    "id" | "status" | "message" | "worker_id" | "created_at" | "started_at" | "finished_at"
-  >,
-): LuminaJob {
+type RequestSelection = Pick<
+  RequestRow,
+  | "id"
+  | "queue_number"
+  | "status"
+  | "message"
+  | "total_items"
+  | "completed_items"
+  | "failed_items"
+  | "canceled_items"
+  | "created_at"
+  | "started_at"
+  | "finished_at"
+>;
+
+function mapRequest(row: RequestSelection, workerId: string | null = null): LuminaJob {
   return {
     id: row.id,
+    queueNumber: row.queue_number === null ? null : Number(row.queue_number),
     status: row.status as LuminaJobStatus,
     message: row.message,
-    workerId: row.worker_id,
+    workerId,
+    totalItems: row.total_items,
+    completedItems: row.completed_items,
+    failedItems: row.failed_items,
+    canceledItems: row.canceled_items,
     createdAt: row.created_at,
     startedAt: row.started_at,
     finishedAt: row.finished_at,
@@ -45,19 +66,17 @@ export const enqueueLuminaLaunch = createServerFn({ method: "POST" })
     return {};
   })
   .handler(async ({ context }) => {
-    const { data, error } = await context.supabase
-      .from("lumina_jobs")
-      .insert({
-        requested_by: context.authUserId,
-        empresa_id: context.user.empresaId,
-        action: "launch_notes",
-        payload: {},
-      })
-      .select(JOB_COLUMNS)
-      .single();
+    const { data, error } = await context.supabase.rpc("enqueue_lumina_request", {
+      p_action: "launch_notes",
+      p_payload: {},
+      p_items: [],
+    });
 
     if (error) throw error;
-    return mapJob(data);
+
+    const row = (Array.isArray(data) ? data[0] : data) as RequestSelection | null;
+    if (!row) throw new Error("Não foi possível criar a solicitação na fila.");
+    return mapRequest(row);
   });
 
 export const getLuminaJobStatus = createServerFn({ method: "POST" })
@@ -76,11 +95,20 @@ export const getLuminaJobStatus = createServerFn({ method: "POST" })
   })
   .handler(async ({ data, context }) => {
     const { data: row, error } = await context.supabase
-      .from("lumina_jobs")
-      .select(JOB_COLUMNS)
+      .from("lumina_queue_requests")
+      .select(REQUEST_COLUMNS)
       .eq("id", data.id)
       .single();
 
     if (error) throw error;
-    return mapJob(row);
+
+    const { data: items } = await context.supabase
+      .from("lumina_jobs")
+      .select("worker_id, message, status")
+      .eq("queue_request_id", data.id)
+      .eq("status", "running")
+      .limit(1);
+
+    const runningItem = items?.[0] ?? null;
+    return mapRequest(row, runningItem?.worker_id ?? null);
   });
