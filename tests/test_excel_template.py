@@ -6,6 +6,8 @@ import tempfile
 import unittest
 from datetime import datetime
 from pathlib import Path
+from zipfile import ZipFile
+from xml.etree import ElementTree as ET
 
 from openpyxl import load_workbook
 
@@ -63,6 +65,27 @@ class ExcelTemplateTests(unittest.TestCase):
             self.assertIsNone(launches["F4"].value)
             self.assertIsNone(launches["H4"].value)
             self.assertEqual(workbook["Planilha1"]["B1"].value, "=A1/A13")
+
+            with ZipFile(output) as archive:
+                self.assertNotIn("xl/calcChain.xml", archive.namelist())
+
+                relationships = ET.fromstring(
+                    archive.read("xl/_rels/workbook.xml.rels")
+                )
+                self.assertFalse(
+                    any(
+                        relationship.attrib.get("Target", "").endswith("calcChain.xml")
+                        for relationship in relationships
+                    )
+                )
+
+                content_types = ET.fromstring(archive.read("[Content_Types].xml"))
+                self.assertFalse(
+                    any(
+                        override.attrib.get("PartName") == "/xl/calcChain.xml"
+                        for override in content_types
+                    )
+                )
 
 
 if __name__ == "__main__":

@@ -37,6 +37,10 @@ class ExcelWriter:
     XML_NS = "http://schemas.openxmlformats.org/spreadsheetml/2006/main"
     REL_NS = "http://schemas.openxmlformats.org/officeDocument/2006/relationships"
     PACKAGE_REL_NS = "http://schemas.openxmlformats.org/package/2006/relationships"
+    CONTENT_TYPES_NS = "http://schemas.openxmlformats.org/package/2006/content-types"
+    CALC_CHAIN_REL_TYPE = (
+        "http://schemas.openxmlformats.org/officeDocument/2006/relationships/calcChain"
+    )
     XML_SPACE = "{http://www.w3.org/XML/1998/namespace}space"
 
     SUMMARY_COLUMNS = [
@@ -272,6 +276,11 @@ class ExcelWriter:
 
         package[sheet_path] = ET.tostring(sheet_root, encoding="utf-8", xml_declaration=True)
 
+        # The template contains a calculation chain for its sample formulas.
+        # Data rows are replaced with values above, so keeping that stale chain
+        # makes Excel report that the generated workbook needs repair.
+        self._remove_calculation_chain(package, workbook_rels)
+
         calc_pr = workbook_root.find("m:calcPr", namespace)
         if calc_pr is None:
             calc_pr = ET.SubElement(workbook_root, f"{{{self.XML_NS}}}calcPr")
@@ -283,10 +292,48 @@ class ExcelWriter:
             encoding="utf-8",
             xml_declaration=True,
         )
+        package["xl/_rels/workbook.xml.rels"] = ET.tostring(
+            workbook_rels,
+            encoding="utf-8",
+            xml_declaration=True,
+        )
 
         with zipfile.ZipFile(output_path, "w", zipfile.ZIP_DEFLATED) as destination:
             for name, content in package.items():
                 destination.writestr(name, content)
+
+    @classmethod
+    def _remove_calculation_chain(
+        cls,
+        package: dict[str, bytes],
+        workbook_rels: ET.Element,
+    ) -> None:
+        """Remove stale calculation-chain parts after replacing template formulas."""
+        rel_namespace = {"r": cls.PACKAGE_REL_NS}
+        calculation_relationships = [
+            relationship
+            for relationship in workbook_rels.findall("r:Relationship", rel_namespace)
+            if relationship.attrib.get("Type") == cls.CALC_CHAIN_REL_TYPE
+            or relationship.attrib.get("Target", "").endswith("calcChain.xml")
+        ]
+        for relationship in calculation_relationships:
+            workbook_rels.remove(relationship)
+
+        for name in list(package):
+            if name == "xl/calcChain.xml" or name.endswith("/calcChain.xml"):
+                package.pop(name, None)
+
+        content_types = ET.fromstring(package["[Content_Types].xml"])
+        content_namespace = {"ct": cls.CONTENT_TYPES_NS}
+        for override in content_types.findall("ct:Override", content_namespace):
+            if override.attrib.get("PartName") == "/xl/calcChain.xml":
+                content_types.remove(override)
+
+        package["[Content_Types].xml"] = ET.tostring(
+            content_types,
+            encoding="utf-8",
+            xml_declaration=True,
+        )
 
     def _template_row_values(
         self,
