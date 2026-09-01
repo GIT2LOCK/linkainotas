@@ -38,10 +38,29 @@ class ExcelWriter:
     REL_NS = "http://schemas.openxmlformats.org/officeDocument/2006/relationships"
     PACKAGE_REL_NS = "http://schemas.openxmlformats.org/package/2006/relationships"
     CONTENT_TYPES_NS = "http://schemas.openxmlformats.org/package/2006/content-types"
+    TEMPLATE_NAMESPACES = {
+        "mc": "http://schemas.openxmlformats.org/markup-compatibility/2006",
+        "x15": "http://schemas.microsoft.com/office/spreadsheetml/2010/11/main",
+        "x15ac": "http://schemas.microsoft.com/office/spreadsheetml/2010/11/ac",
+        "x14": "http://schemas.microsoft.com/office/spreadsheetml/2009/9/main",
+        "x14ac": "http://schemas.microsoft.com/office/spreadsheetml/2009/9/ac",
+        "xr": "http://schemas.microsoft.com/office/spreadsheetml/2014/revision",
+        "xr2": "http://schemas.microsoft.com/office/spreadsheetml/2015/revision2",
+        "xr3": "http://schemas.microsoft.com/office/spreadsheetml/2016/revision3",
+        "xr6": "http://schemas.microsoft.com/office/spreadsheetml/2016/revision6",
+        "xr10": "http://schemas.microsoft.com/office/spreadsheetml/2016/revision10",
+        "xdr": "http://schemas.openxmlformats.org/drawingml/2006/spreadsheetDrawing",
+    }
     CALC_CHAIN_REL_TYPE = (
         "http://schemas.openxmlformats.org/officeDocument/2006/relationships/calcChain"
     )
     XML_SPACE = "{http://www.w3.org/XML/1998/namespace}space"
+    ROOT_TAG_PATTERN = re.compile(
+        rb"<(?:[A-Za-z_][\w.-]*:)?[A-Za-z_][\w.-]*(?:\s[^<>]*?)?>"
+    )
+    NAMESPACE_PATTERN = re.compile(
+        rb"\s+xmlns(?::(?P<prefix>[A-Za-z_][\w.-]*))?=(?P<quote>['\"])(?P<uri>.*?)(?P=quote)"
+    )
 
     SUMMARY_COLUMNS = [
         "Arquivo",
@@ -200,6 +219,8 @@ class ExcelWriter:
         notas: list[NotaFiscal],
     ) -> None:
         namespace = {"m": self.XML_NS}
+        for prefix, uri in self.TEMPLATE_NAMESPACES.items():
+            ET.register_namespace(prefix, uri)
         ET.register_namespace("", self.XML_NS)
         ET.register_namespace("r", self.REL_NS)
 
@@ -274,7 +295,7 @@ class ExcelWriter:
                 sheet_data.append(row)
             self._write_row_values(row, row_values, namespace)
 
-        package[sheet_path] = ET.tostring(sheet_root, encoding="utf-8", xml_declaration=True)
+        package[sheet_path] = self._serialize_template_xml(package[sheet_path], sheet_root)
 
         # The template contains a calculation chain for its sample formulas.
         # Data rows are replaced with values above, so keeping that stale chain
@@ -287,10 +308,9 @@ class ExcelWriter:
         calc_pr.set("calcMode", "auto")
         calc_pr.set("fullCalcOnLoad", "1")
         calc_pr.set("forceFullCalc", "1")
-        package["xl/workbook.xml"] = ET.tostring(
+        package["xl/workbook.xml"] = self._serialize_template_xml(
+            package["xl/workbook.xml"],
             workbook_root,
-            encoding="utf-8",
-            xml_declaration=True,
         )
         package["xl/_rels/workbook.xml.rels"] = ET.tostring(
             workbook_rels,
@@ -334,6 +354,44 @@ class ExcelWriter:
             encoding="utf-8",
             xml_declaration=True,
         )
+
+    @classmethod
+    def _serialize_template_xml(
+        cls,
+        source_xml: bytes,
+        root: ET.Element,
+    ) -> bytes:
+        """Serialize a template part without dropping its namespace declarations."""
+        serialized = ET.tostring(root, encoding="utf-8", xml_declaration=True)
+        source_root = cls.ROOT_TAG_PATTERN.search(source_xml)
+        output_root = cls.ROOT_TAG_PATTERN.search(serialized)
+
+        if source_root is None or output_root is None:
+            return serialized
+
+        source_namespaces = {
+            match.group("prefix") or b"": match.group("uri")
+            for match in cls.NAMESPACE_PATTERN.finditer(source_root.group(0))
+        }
+        output_namespaces = {
+            match.group("prefix") or b"": match.group("uri")
+            for match in cls.NAMESPACE_PATTERN.finditer(output_root.group(0))
+        }
+        missing = b"".join(
+            b' xmlns'
+            + (b":" + prefix if prefix else b"")
+            + b'="'
+            + uri
+            + b'"'
+            for prefix, uri in source_namespaces.items()
+            if prefix not in output_namespaces
+        )
+
+        if not missing:
+            return serialized
+
+        insertion_point = output_root.end() - 1
+        return serialized[:insertion_point] + missing + serialized[insertion_point:]
 
     def _template_row_values(
         self,

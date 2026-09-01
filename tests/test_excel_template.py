@@ -69,6 +69,14 @@ class ExcelTemplateTests(unittest.TestCase):
             with ZipFile(output) as archive:
                 self.assertNotIn("xl/calcChain.xml", archive.namelist())
 
+                workbook_xml = archive.read("xl/workbook.xml")
+                sheet_xml = archive.read("xl/worksheets/sheet1.xml")
+                self.assertIn(b'mc:Ignorable="x15 xr xr6 xr10 xr2"', workbook_xml)
+                self.assertIn(b'xmlns:x15=', workbook_xml)
+                self.assertIn(b'mc:Ignorable="x14ac xr xr2 xr3"', sheet_xml)
+                self.assertIn(b'xmlns:x14ac=', sheet_xml)
+                self.assertNotIn(b'ns1:Ignorable', workbook_xml + sheet_xml)
+
                 relationships = ET.fromstring(
                     archive.read("xl/_rels/workbook.xml.rels")
                 )
