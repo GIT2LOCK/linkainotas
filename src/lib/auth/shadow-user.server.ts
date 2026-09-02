@@ -24,6 +24,7 @@ export type LinkaiUser = {
   empresaId: number | null;
   avatarUrl: string | null;
   ativo: boolean;
+  twoFactorPolicy: string;
 };
 
 
@@ -95,6 +96,7 @@ function mapRow(
     avatar_url: string | null;
     ativo: boolean | null;
     is_platform_superadmin?: boolean | null;
+    two_factor_policy?: string | null;
   },
   perfilInterno = "sem_acesso",
 ): LinkaiUser {
@@ -112,6 +114,7 @@ function mapRow(
     empresaId: row.empresa_id,
     avatarUrl: row.avatar_url,
     ativo: row.ativo !== false,
+    twoFactorPolicy: row.two_factor_policy ?? "optional",
   };
 }
 
@@ -130,7 +133,70 @@ async function resolvePerfilInterno(usuarioId: number): Promise<string> {
 }
 
 const USER_COLUMNS =
-  "id, auth_user_id, ariia_user_id, nome, email, permissao, empresa_id, avatar_url, ativo, is_platform_superadmin";
+  "id, auth_user_id, ariia_user_id, nome, email, permissao, empresa_id, avatar_url, ativo, is_platform_superadmin, two_factor_policy";
+
+export type LinkaiObraAtribuida = {
+  obraId: string;
+  codigo: string;
+  nome: string;
+  tipo: string;
+  perfilCodigo: string;
+  principal: boolean;
+};
+
+export type LinkaiAccessContext = {
+  permissoes: string[];
+  obras: LinkaiObraAtribuida[];
+};
+
+/**
+ * Permissões efetivas e obras atribuídas ao usuário.
+ * Server-only: leitura consolidada para montar a sessão do front.
+ */
+export async function getAccessContext(
+  usuarioId: number,
+  isPlatformSuperadmin: boolean,
+): Promise<LinkaiAccessContext> {
+  const { data: vinculos } = await supabaseAdmin
+    .from("linkai_usuario_obras")
+    .select("perfil_codigo, principal, obra:linkai_obras(id, codigo, nome, tipo)")
+    .eq("usuario_id", usuarioId)
+    .eq("ativo", true)
+    .order("principal", { ascending: false });
+
+  const obras: LinkaiObraAtribuida[] = (vinculos ?? []).flatMap((row) => {
+    const obra = row.obra as { id: string; codigo: string; nome: string; tipo: string } | null;
+    if (!obra) return [];
+    return [
+      {
+        obraId: obra.id,
+        codigo: obra.codigo,
+        nome: obra.nome,
+        tipo: obra.tipo,
+        perfilCodigo: row.perfil_codigo,
+        principal: row.principal === true,
+      },
+    ];
+  });
+
+  if (isPlatformSuperadmin) {
+    const { data: todas } = await supabaseAdmin.from("linkai_permissoes").select("codigo");
+    return { permissoes: (todas ?? []).map((row) => row.codigo), obras };
+  }
+
+  const perfis = Array.from(new Set(obras.map((obra) => obra.perfilCodigo)));
+  if (perfis.length === 0) return { permissoes: [], obras };
+
+  const { data: permissoes } = await supabaseAdmin
+    .from("linkai_perfil_permissoes")
+    .select("permissao_codigo")
+    .in("perfil_codigo", perfis);
+
+  return {
+    permissoes: Array.from(new Set((permissoes ?? []).map((row) => row.permissao_codigo))),
+    obras,
+  };
+}
 
 
 /**
