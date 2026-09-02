@@ -9,6 +9,12 @@ const columns = [
   { key: "codigo", label: "Código" },
   { key: "nome", label: "Nome" },
   {
+    key: "empresaNome",
+    label: "Empresa",
+    render: (row: Record<string, unknown>) =>
+      String(row["empresaNome"] ?? `Empresa ${String(row["empresaId"] ?? "")}`),
+  },
+  {
     key: "tipo",
     label: "Tipo",
     render: (row: Record<string, unknown>) =>
@@ -20,6 +26,7 @@ const columns = [
     render: (row: Record<string, unknown>) => (row["ativo"] === true ? "Ativa" : "Inativa"),
   },
 ];
+
 
 export function ObrasTab({ canManage }: { canManage: boolean }) {
   const list = useAsyncAction(() => listObras());
