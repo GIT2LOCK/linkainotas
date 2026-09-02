@@ -89,7 +89,7 @@ export const listObras = createServerFn({ method: "GET" })
   .handler(async ({ context }): Promise<ObraItem[]> => {
     const { data, error } = await context.supabase
       .from("linkai_obras")
-      .select("id, codigo, nome, tipo, ativo, empresa_id, created_at")
+      .select("id, codigo, nome, tipo, ativo, empresa_id, created_at, empresa:empresas(nome_fantasia)")
       .order("tipo", { ascending: true })
       .order("codigo", { ascending: true });
 
@@ -102,8 +102,10 @@ export const listObras = createServerFn({ method: "GET" })
       tipo: row.tipo,
       ativo: row.ativo,
       empresaId: row.empresa_id,
+      empresaNome: (row.empresa as { nome_fantasia: string } | null)?.nome_fantasia ?? null,
       createdAt: row.created_at,
     }));
+
   });
 
 export const createObra = createServerFn({ method: "POST" })
