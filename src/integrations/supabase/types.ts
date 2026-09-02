@@ -162,6 +162,88 @@ export type Database = {
           },
         ]
       }
+      linkai_convite_obras: {
+        Row: {
+          convite_id: string
+          created_at: string
+          obra_id: string
+          perfil_codigo: string
+          principal: boolean
+        }
+        Insert: {
+          convite_id: string
+          created_at?: string
+          obra_id: string
+          perfil_codigo: string
+          principal?: boolean
+        }
+        Update: {
+          convite_id?: string
+          created_at?: string
+          obra_id?: string
+          perfil_codigo?: string
+          principal?: boolean
+        }
+        Relationships: [
+          {
+            foreignKeyName: "linkai_convite_obras_convite_id_fkey"
+            columns: ["convite_id"]
+            isOneToOne: false
+            referencedRelation: "linkai_user_convites"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "linkai_convite_obras_obra_id_fkey"
+            columns: ["obra_id"]
+            isOneToOne: false
+            referencedRelation: "linkai_obras"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "linkai_convite_obras_perfil_codigo_fkey"
+            columns: ["perfil_codigo"]
+            isOneToOne: false
+            referencedRelation: "linkai_perfis_internos"
+            referencedColumns: ["codigo"]
+          },
+        ]
+      }
+      linkai_convite_permissoes: {
+        Row: {
+          concedida: boolean
+          convite_id: string
+          created_at: string
+          permissao_codigo: string
+        }
+        Insert: {
+          concedida?: boolean
+          convite_id: string
+          created_at?: string
+          permissao_codigo: string
+        }
+        Update: {
+          concedida?: boolean
+          convite_id?: string
+          created_at?: string
+          permissao_codigo?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "linkai_convite_permissoes_convite_id_fkey"
+            columns: ["convite_id"]
+            isOneToOne: false
+            referencedRelation: "linkai_user_convites"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "linkai_convite_permissoes_permissao_codigo_fkey"
+            columns: ["permissao_codigo"]
+            isOneToOne: false
+            referencedRelation: "linkai_permissoes"
+            referencedColumns: ["codigo"]
+          },
+        ]
+      }
       linkai_obras: {
         Row: {
           ativo: boolean
@@ -405,6 +487,45 @@ export type Database = {
           },
           {
             foreignKeyName: "linkai_usuario_obras_usuario_id_fkey"
+            columns: ["usuario_id"]
+            isOneToOne: false
+            referencedRelation: "usuarios"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      linkai_usuario_permissoes: {
+        Row: {
+          concedida: boolean
+          created_at: string
+          permissao_codigo: string
+          updated_at: string
+          usuario_id: number
+        }
+        Insert: {
+          concedida?: boolean
+          created_at?: string
+          permissao_codigo: string
+          updated_at?: string
+          usuario_id: number
+        }
+        Update: {
+          concedida?: boolean
+          created_at?: string
+          permissao_codigo?: string
+          updated_at?: string
+          usuario_id?: number
+        }
+        Relationships: [
+          {
+            foreignKeyName: "linkai_usuario_permissoes_permissao_codigo_fkey"
+            columns: ["permissao_codigo"]
+            isOneToOne: false
+            referencedRelation: "linkai_permissoes"
+            referencedColumns: ["codigo"]
+          },
+          {
+            foreignKeyName: "linkai_usuario_permissoes_usuario_id_fkey"
             columns: ["usuario_id"]
             isOneToOne: false
             referencedRelation: "usuarios"
@@ -1104,6 +1225,36 @@ export type Database = {
         Args: { p_empresa_id: number }
         Returns: boolean
       }
+      linkai_create_convite: {
+        Args: {
+          p_email: string
+          p_nome: string
+          p_obras?: Json
+          p_perfil_codigo: string
+          p_permissoes?: Json
+          p_two_factor_policy: string
+        }
+        Returns: {
+          criado_em: string
+          criado_por: string | null
+          email: string
+          empresa_id: number
+          id: string
+          nome: string
+          obra_id: string | null
+          perfil_codigo: string
+          status: string
+          two_factor_policy: string
+          updated_at: string
+          vinculado_em: string | null
+        }
+        SetofOptions: {
+          from: "*"
+          to: "linkai_user_convites"
+          isOneToOne: true
+          isSetofReturn: false
+        }
+      }
       linkai_create_obra: {
         Args: {
           p_codigo: string
@@ -1204,6 +1355,16 @@ export type Database = {
       linkai_perfil_principal: {
         Args: { p_usuario_id?: number }
         Returns: string
+      }
+      linkai_set_usuario_acessos: {
+        Args: {
+          p_ativo?: boolean
+          p_obras?: Json
+          p_permissoes?: Json
+          p_two_factor_policy?: string
+          p_usuario_id: number
+        }
+        Returns: undefined
       }
       lumina_archive_job: {
         Args: { p_job_id: string; p_message: string; p_status: string }
