@@ -10,10 +10,14 @@ export type SessionUser = {
   authUserId: string;
   nome: string;
   email: string;
+  /** Perfil interno principal do LinkAI (superadmin_2lock, supervisor_empresa, ...). */
   permissao: string | null;
+  perfilInterno: string;
+  isPlatformSuperadmin: boolean;
   empresaId: number | null;
   avatarUrl: string | null;
 };
+
 
 function isMissingAriiaSessionConfig(error: unknown): boolean {
   return (
