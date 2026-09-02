@@ -10,10 +10,14 @@ export type SessionUser = {
   authUserId: string;
   nome: string;
   email: string;
+  /** Perfil interno principal do LinkAI (superadmin_2lock, supervisor_empresa, ...). */
   permissao: string | null;
+  perfilInterno: string;
+  isPlatformSuperadmin: boolean;
   empresaId: number | null;
   avatarUrl: string | null;
 };
+
 
 function isMissingAriiaSessionConfig(error: unknown): boolean {
   return (
@@ -49,11 +53,14 @@ export const getCurrentSession = createServerFn({ method: "GET" }).handler(
         authUserId: profile.authUserId,
         nome: profile.nome,
         email: profile.email,
-        permissao: profile.permissao,
+        permissao: profile.perfilInterno,
+        perfilInterno: profile.perfilInterno,
+        isPlatformSuperadmin: profile.isPlatformSuperadmin,
         empresaId: profile.empresaId,
         avatarUrl: profile.avatarUrl,
       },
     };
+
   },
 );
 

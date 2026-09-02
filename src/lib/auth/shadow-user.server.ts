@@ -18,10 +18,14 @@ export type LinkaiUser = {
   nome: string;
   email: string;
   permissao: string | null;
+  /** Perfil interno principal do LinkAI (fonte de verdade de acesso). */
+  perfilInterno: string;
+  isPlatformSuperadmin: boolean;
   empresaId: number | null;
   avatarUrl: string | null;
   ativo: boolean;
 };
+
 
 /** Busca um usuário do GoTrue por e-mail via Admin API REST (filtro por e-mail). */
 async function findAuthUserIdByEmail(email: string): Promise<string | null> {
@@ -79,17 +83,23 @@ async function createShadowAuthUser(identity: AriiaIdentity): Promise<string> {
   );
 }
 
-function mapRow(row: {
-  id: number;
-  auth_user_id: string;
-  ariia_user_id: string | null;
-  nome: string;
-  email: string;
-  permissao: string | null;
-  empresa_id: number | null;
-  avatar_url: string | null;
-  ativo: boolean | null;
-}): LinkaiUser {
+function mapRow(
+  row: {
+    id: number;
+    auth_user_id: string;
+    ariia_user_id: string | null;
+    nome: string;
+    email: string;
+    permissao: string | null;
+    empresa_id: number | null;
+    avatar_url: string | null;
+    ativo: boolean | null;
+    is_platform_superadmin?: boolean | null;
+  },
+  perfilInterno = "sem_acesso",
+): LinkaiUser {
+  const isPlatformSuperadmin = row.is_platform_superadmin === true;
+
   return {
     id: row.id,
     authUserId: row.auth_user_id,
@@ -97,14 +107,31 @@ function mapRow(row: {
     nome: row.nome,
     email: row.email,
     permissao: row.permissao,
+    perfilInterno: isPlatformSuperadmin ? "superadmin_2lock" : perfilInterno,
+    isPlatformSuperadmin,
     empresaId: row.empresa_id,
     avatarUrl: row.avatar_url,
     ativo: row.ativo !== false,
   };
 }
 
+/** Perfil interno principal (linkai_usuario_obras) resolvido no banco. */
+async function resolvePerfilInterno(usuarioId: number): Promise<string> {
+  const { data, error } = await supabaseAdmin.rpc("linkai_perfil_principal", {
+    p_usuario_id: usuarioId,
+  });
+
+  if (error) {
+    console.error(`[Linkai] linkai_perfil_principal: ${error.message}`);
+    return "sem_acesso";
+  }
+
+  return (data as string | null) ?? "sem_acesso";
+}
+
 const USER_COLUMNS =
-  "id, auth_user_id, ariia_user_id, nome, email, permissao, empresa_id, avatar_url, ativo";
+  "id, auth_user_id, ariia_user_id, nome, email, permissao, empresa_id, avatar_url, ativo, is_platform_superadmin";
+
 
 /**
  * Idempotente: resolve (ou cria) o usuário-espelho para a identidade do Ariia
@@ -146,7 +173,22 @@ export async function ensureShadowUser(identity: AriiaIdentity): Promise<LinkaiU
 
   if (upsertError) throw upsertError;
 
-  const user = mapRow(upserted);
+  // Pré-cadastro: vincula empresa, política de 2FA e atribuição de obra/função.
+  const { error: conviteError } = await supabaseAdmin.rpc("linkai_link_convite", {
+    p_email: identity.email,
+  });
+  if (conviteError) {
+    console.error(`[Linkai] linkai_link_convite: ${conviteError.message}`);
+  }
+
+  const { data: atual, error: reloadError } = await supabaseAdmin
+    .from("usuarios")
+    .select(USER_COLUMNS)
+    .eq("id", upserted.id)
+    .single();
+  if (reloadError) throw reloadError;
+
+  const user = mapRow(atual, await resolvePerfilInterno(atual.id));
 
   if (!user.ativo) {
     throw new Error("INACTIVE_USER");
@@ -164,5 +206,8 @@ export async function getLinkaiUserByAuthId(authUserId: string): Promise<LinkaiU
     .maybeSingle();
 
   if (error) throw error;
-  return data ? mapRow(data) : null;
+  if (!data) return null;
+
+  return mapRow(data, await resolvePerfilInterno(data.id));
 }
+
