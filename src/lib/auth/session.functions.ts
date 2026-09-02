@@ -6,8 +6,18 @@
  */
 import { createServerFn } from "@tanstack/react-start";
 
+export type SessionObra = {
+  obraId: string;
+  codigo: string;
+  nome: string;
+  tipo: string;
+  perfilCodigo: string;
+  principal: boolean;
+};
+
 export type SessionUser = {
   authUserId: string;
+  usuarioId: number;
   nome: string;
   email: string;
   /** Perfil interno principal do LinkAI (superadmin_2lock, supervisor_empresa, ...). */
@@ -16,7 +26,11 @@ export type SessionUser = {
   isPlatformSuperadmin: boolean;
   empresaId: number | null;
   avatarUrl: string | null;
+  twoFactorPolicy: string;
+  permissoes: string[];
+  obras: SessionObra[];
 };
+
 
 
 function isMissingAriiaSessionConfig(error: unknown): boolean {
