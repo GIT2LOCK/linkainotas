@@ -147,7 +147,7 @@ export function ProcessPdfsPage() {
       try {
         const progress = await callBackend<ProcessingProgress>("documents.progress");
         if (!disposed) {
-          setProcessingProgress(progress);
+          setProcessingProgress((current) => mergeProgressSnapshot(current, progress));
         }
       } catch {
         // The main processing request remains the source of truth if polling is unavailable.
@@ -419,9 +419,7 @@ export function ProcessPdfsPage() {
                 onClick={runProcessing}
                 type="button"
               >
-                {action.loading
-                  ? `Processando ${processingPercent(processingProgress)}%`
-                  : "Processar"}
+                {action.loading ? processingLabel(processingProgress) : "Processar"}
                 {action.loading ? (
                   <LoaderCircle className="spin" size={18} />
                 ) : (
@@ -737,26 +735,40 @@ interface ProcessingProgressPanelProps {
 
 function ProcessingProgressPanel({ fallbackTotal, progress }: ProcessingProgressPanelProps) {
   const percent = processingPercent(progress);
+  const determinate = percent !== null;
   const total = progress?.total || fallbackTotal;
   const completed = Math.min(progress?.completed ?? 0, total || 0);
-  const currentFile = progress?.currentFile ? progress.currentFile.split(/[\\/]/).pop() : null;
+  const currentFile =
+    progress?.status === "running" && progress.currentFile
+      ? progress.currentFile.split(/[\\/]/).pop()
+      : null;
+  const phase =
+    progress?.status === "running" && progress.phase
+      ? progress.phase
+      : "Preparando processamento";
 
   return (
     <section className="processing-progress-panel" aria-label="Andamento do processamento">
       <div className="processing-progress-header">
         <div
           aria-hidden="true"
-          className="progress-ring"
-          style={{
-            background: `conic-gradient(var(--accent) ${percent * 3.6}deg, var(--surface-muted) 0deg)`,
-          }}
+          className={`progress-ring ${determinate ? "" : "is-indeterminate"}`}
+          style={
+            determinate
+              ? {
+                  background: `conic-gradient(var(--accent) ${percent * 3.6}deg, var(--surface-muted) 0deg)`,
+                }
+              : undefined
+          }
         >
-          <span>{percent}%</span>
+          <span>
+            {determinate ? `${percent}%` : <LoaderCircle className="spin" size={16} />}
+          </span>
         </div>
         <div className="processing-progress-copy">
           <div className="progress-heading">
             <h3>Processando documentos</h3>
-            <span>{progress?.phase ?? "Preparando processamento"}</span>
+            <span>{phase}</span>
           </div>
           <p>
             {currentFile
@@ -766,27 +778,67 @@ function ProcessingProgressPanel({ fallbackTotal, progress }: ProcessingProgress
         </div>
       </div>
       <div
-        aria-label={`Processamento em ${percent}%`}
+        aria-label={determinate ? `Processamento em ${percent}%` : "Preparando processamento"}
         aria-valuemax={100}
         aria-valuemin={0}
-        aria-valuenow={percent}
-        className="progress-track"
+        aria-valuenow={determinate ? percent : undefined}
+        className={`progress-track ${determinate ? "" : "is-indeterminate"}`}
         role="progressbar"
       >
-        <span style={{ width: `${percent}%` }} />
+        <span style={determinate ? { width: `${percent}%` } : undefined} />
       </div>
       <div className="progress-meta">
         <span>
-          {total > 0 ? `${completed} de ${total} documento(s)` : "Preparando documentos..."}
+          {determinate && total > 0
+            ? `${completed} de ${total} documento(s)`
+            : "Preparando documentos..."}
         </span>
-        <span>Acompanhamento em tempo real</span>
+        <span>{determinate ? "Acompanhamento em tempo real" : "Conectando ao processador"}</span>
       </div>
     </section>
   );
 }
 
-function processingPercent(progress: ProcessingProgress | null): number {
-  return Math.min(99, Math.max(0, Math.round(progress?.progress ?? 4)));
+function processingLabel(progress: ProcessingProgress | null): string {
+  const percent = processingPercent(progress);
+  return percent === null ? "Preparando..." : `Processando ${percent}%`;
+}
+
+function processingPercent(progress: ProcessingProgress | null): number | null {
+  if (progress?.status === "completed") {
+    return 100;
+  }
+
+  if (
+    !progress ||
+    progress.status !== "running" ||
+    progress.total <= 0 ||
+    (progress.progress <= 0 && progress.completed <= 0)
+  ) {
+    return null;
+  }
+
+  return Math.min(99, Math.max(1, Math.round(progress.progress)));
+}
+
+function mergeProgressSnapshot(
+  current: ProcessingProgress | null,
+  next: ProcessingProgress,
+): ProcessingProgress | null {
+  if (!current) {
+    return next.status === "running" ? next : null;
+  }
+
+  if (current.status !== "running") {
+    return next.status === "running" ? next : current;
+  }
+
+  if (next.status === "running") {
+    const sameRun = current.total > 0 && next.total > 0 && current.total === next.total;
+    return sameRun && next.progress < current.progress ? current : next;
+  }
+
+  return next;
 }
 
 async function copyBrowserFilesToDirectory(files: File[], directory: BrowserDirectoryHandle) {

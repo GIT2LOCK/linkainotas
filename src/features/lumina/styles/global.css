@@ -542,7 +542,18 @@
   flex: 0 0 auto;
   place-items: center;
   border-radius: 50%;
+  background: var(--surface-muted);
   box-shadow: var(--raised-soft);
+}
+
+.progress-ring.is-indeterminate::after {
+  position: absolute;
+  inset: 0;
+  border: 4px solid transparent;
+  border-top-color: var(--accent);
+  border-radius: 50%;
+  animation: progress-ring-spin 900ms linear infinite;
+  content: "";
 }
 
 .progress-ring::before {
@@ -607,10 +618,42 @@
   transition: width 180ms ease;
 }
 
+.progress-track.is-indeterminate span {
+  width: 34%;
+  animation: progress-sweep 1.4s ease-in-out infinite;
+}
+
 .progress-meta {
   display: flex;
   justify-content: space-between;
   gap: 12px;
+}
+
+@keyframes progress-ring-spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+@keyframes progress-sweep {
+  0% {
+    transform: translateX(-120%);
+  }
+
+  50% {
+    transform: translateX(190%);
+  }
+
+  100% {
+    transform: translateX(320%);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .progress-ring.is-indeterminate::after,
+  .progress-track.is-indeterminate span {
+    animation: none;
+  }
 }
 
 .process-hero h2 {
