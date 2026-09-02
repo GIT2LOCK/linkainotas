@@ -2539,15 +2539,19 @@
 }
 
 .multi-picker > summary {
+  box-sizing: border-box;
+  display: flex;
+  align-items: center;
   list-style: none;
   cursor: pointer;
   width: 100%;
-  padding: 10px 12px;
-  border: 1px solid var(--line-soft);
+  min-height: 34px;
+  padding: 8px 9px;
+  border: 1px solid var(--line);
   border-radius: var(--radius);
   background: var(--surface-muted);
   color: var(--text);
-  font-size: 0.85rem;
+  font-size: inherit;
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
