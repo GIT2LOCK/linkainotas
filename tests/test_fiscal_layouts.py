@@ -182,6 +182,37 @@ DADOS ADICIONAIS"""
         self.assertEqual(len(nota.parcelas), 1)
         self.assertIsNone(nota.outros_campos.get("transportador", {}).get("razao_social"))
 
+    def test_keeps_ocr_complementary_block_and_parcelas_label(self) -> None:
+        text = """DANFE
+Documento Auxiliar da Nota Fiscal Eletrônica
+CHAVE DE ACESSO
+35260715383361000131550010000036831333983943
+METALURGICA FHOENIX DO BRASIL LTDA
+DESTINATÁRIO / REMETENTE
+FATURA
+DADOS DA FATURA Numero: 000003683 - Valor Original: R$ 4.465,00 - Valor Desconto: R$0,00 - Valor Liquido: R$ 4.465,00
+PARCELAS
+Numero : 001
+Vencimento : 26/08/2026
+Valor R$ 4.465,00
+DADOS DOS PRODUTOS / SERVIÇOS
+0071 FECHAMENTO MEDINDO: 0,25X1,70M 73089010 0102 5102 PC 1,00 4.295,00 0,00 4.295,00 0,00 0,00 0,00 0,00 0,00
+0069 REQUADRO GALVANIZADO MEDINDO: 0,53X2,69M 73089090 0102 5102 PC 1,00 170,00 0,00 170,00 0,00 0,00 0,00 0,00 0,00
+DADOS ADICIONAIS
+INFORMACOES COMPLEMENTARES RESERVADO AO FISCO
+Pagamento(s): (Boleto Bancario R$4.465,00) - OBRA: FONSECA RODRIGUES-LINKA
+Endereco: Av. Prof. Fonseca Rodrigues, 498
+SFOBRAS: 2024.0010782-6 CNO - 90.020.92145/72.
+"""
+        nota = NfeDanfe55Parser().parse(
+            self._context(text, "METALURGICA FHOENIX NFE 3683.pdf", ocr_used=True)
+        )
+        self.assertEqual(
+            [(parcela.numero, parcela.vencimento, parcela.valor) for parcela in nota.parcelas],
+            [("001", "2026-08-26", 4465.00)],
+        )
+        self.assertIn("OBRA: FONSECA RODRIGUES-LINKA", nota.observacoes or "")
+
     def test_xml_contains_canonical_metadata(self) -> None:
         nota = NotaFiscal(
             arquivo="cotia.pdf",

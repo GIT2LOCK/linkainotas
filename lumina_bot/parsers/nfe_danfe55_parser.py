@@ -240,9 +240,10 @@ class NfeDanfe55Parser(BaseParser):
         }
 
     def _parse_additional(self, nota: NotaFiscal, lines: list[str]) -> None:
-        value = value_after(lines, "informacoes complementares")
+        value = self._additional_block(lines)
         if value:
             nota.observacoes = value
+            nota.outros_campos["informacoes_complementares_raw"] = value
         nota.outros_campos["issqn"] = {
             "inscricao_municipal": value_after(lines, "inscricao municipal"),
             "valor_total_servicos": decimal(value_after(lines, "valor total dos servicos")),
@@ -282,7 +283,7 @@ class NfeDanfe55Parser(BaseParser):
         self._parse_variant_installments(nota, lines, words)
         self._parse_variant_transport(nota, lines, words, text)
         self._parse_ocr_transport(nota, text)
-        self._parse_ocr_variant_fields(nota, text)
+        self._parse_ocr_variant_fields(nota, lines, text)
 
         if sub_layout == "STAMP":
             self._parse_stamp_identity_and_parties(nota, lines, text, words)
@@ -319,7 +320,7 @@ class NfeDanfe55Parser(BaseParser):
         nota.outros_campos["quantidade_itens"] = len(nota.itens)
         nota.outros_campos["quantidade_parcelas"] = len(nota.parcelas)
 
-    def _parse_ocr_variant_fields(self, nota: NotaFiscal, text: str) -> None:
+    def _parse_ocr_variant_fields(self, nota: NotaFiscal, lines: list[str], text: str) -> None:
         """Correct header and party fields from the OCR-composed DANFE block."""
         if nota.sub_layout not in {"ECOMIX_OCR", "FHOENIX"}:
             return
@@ -443,13 +444,9 @@ class NfeDanfe55Parser(BaseParser):
                 if email_match:
                     nota.tomador.email = email_match.group(1)
             nota.valor_liquido = nota.valor_total
-            additional_blocks = re.findall(
-                r"(?is)dados\s+adicionais.*?(?=impresso\s+em|$)",
-                text,
-            )
-            if additional_blocks:
-                raw = re.sub(r"\s+", " ", max(additional_blocks, key=len)).strip()
-                nota.observacoes = nota.observacoes or raw
+            raw = self._additional_block(lines)
+            if raw:
+                nota.observacoes = raw
                 nota.outros_campos["informacoes_complementares_raw"] = raw
                 nota.outros_campos.setdefault("dados_adicionais", {})[
                     "informacoes_complementares_raw"
@@ -464,9 +461,8 @@ class NfeDanfe55Parser(BaseParser):
             nota.outros_campos["data_saida"] = None
             nota.hora_emissao = None
             nota.valor_liquido = nota.valor_total
-            additional = re.search(r"(?is)dados\s+adicionais.*?(?=recebemos\s+de|$)", text)
-            if additional:
-                raw = re.sub(r"\s+", " ", additional.group(0)).strip()
+            raw = self._additional_block(lines)
+            if raw:
                 nota.observacoes = raw
                 nota.outros_campos["informacoes_complementares_raw"] = raw
                 payment = re.search(r"(?i)boleto\s+bancario\s+R\$?\s*([0-9.,]+)", raw)
@@ -945,7 +941,9 @@ class NfeDanfe55Parser(BaseParser):
     def _parse_variant_installments(self, nota: NotaFiscal, lines: list[str], words: tuple[object, ...] = ()) -> None:
         if nota.parcelas:
             return
-        section_start = self._find(lines, "duplicatas")
+        section_start = self._find(lines, "parcelas")
+        if section_start is None:
+            section_start = self._find(lines, "duplicatas")
         if section_start is None:
             section_start = self._find(lines, "fatura duplicata") or self._find(lines, "fatura")
         section = lines[section_start:] if section_start is not None else lines
@@ -1311,6 +1309,62 @@ class NfeDanfe55Parser(BaseParser):
                     value = value.rstrip(".,")
                 setattr(nota, field_name, value)
                 nota.outros_campos[field_name] = getattr(nota, field_name)
+
+    @classmethod
+    def _additional_block(cls, lines: list[str]) -> str | None:
+        """Return the most complete complementary-information block.
+
+        OCR may emit the DANFE twice and can interleave columns from the first
+        copy. Selecting the last candidate containing fiscal markers keeps the
+        full block while avoiding transport and product-table fragments.
+        """
+        candidates: list[tuple[int, int, list[str]]] = []
+        signals = (
+            "inf. contribuinte",
+            "inf. fisco",
+            "pagamento",
+            "obra",
+            "cno",
+            "sfobras",
+            "vfcp",
+            "icmsuf",
+            "md-5",
+            "issqn",
+            "valor aprox",
+        )
+
+        for start, line in enumerate(lines):
+            normalized_line = normalize_text(line)
+            if not re.search(r"informa(?:coes|goes)\s+complementares", normalized_line):
+                continue
+
+            block: list[str] = []
+            for candidate in lines[start + 1:]:
+                normalized = normalize_text(candidate)
+                if "impresso em" in normalized or normalized.startswith("recebemos de"):
+                    break
+                if normalized in {
+                    "dados adicionais",
+                    "reservado ao fisco",
+                    "informacoes complementares",
+                    "informagoes complementares",
+                }:
+                    continue
+                cleaned = re.sub(r"(?i)\breservado ao fisco\b", "", candidate).strip(" :-")
+                if cleaned:
+                    block.append(cleaned)
+
+            if not block:
+                continue
+            joined = normalize_text(" ".join(block))
+            signal_count = sum(signal in joined for signal in signals)
+            candidates.append((signal_count, start, block))
+
+        if not candidates:
+            return None
+
+        _, _, block = max(candidates, key=lambda candidate: (candidate[0], candidate[1]))
+        return re.sub(r"\s+", " ", " ".join(block)).strip() or None
 
     @staticmethod
     def _all_cnpjs_loose(text: str) -> list[str]:
