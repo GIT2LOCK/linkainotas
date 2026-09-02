@@ -208,7 +208,18 @@ class Processor:
                     self._logger.info("Document already processed: %s", remote_pdf.path)
                     continue
 
-                nota = self._process_pdf(remote_pdf, local_pdf, xml_index)
+                nota = self._process_pdf(
+                    remote_pdf,
+                    local_pdf,
+                    xml_index,
+                    progress_callback=lambda phase, stage_progress: self._report_progress(
+                        completed=completed_documents,
+                        total=len(pdfs),
+                        current_file=remote_pdf.name,
+                        phase=phase,
+                        stage_progress=stage_progress,
+                    ),
+                )
                 self._report_progress(
                     completed=completed_documents,
                     total=len(pdfs),
@@ -308,6 +319,7 @@ class Processor:
         remote_pdf: RemoteStorageFile,
         local_pdf: LocalDocument,
         xml_index: dict[str, RemoteStorageFile],
+        progress_callback: Callable[[str, float], None] | None = None,
     ) -> NotaFiscal:
         xml_document = None
 
@@ -320,10 +332,25 @@ class Processor:
             )
 
         xml_text = self._read_xml(xml_document.local_path) if xml_document else None
+        if progress_callback is not None:
+            progress_callback("Documento baixado e XML associado", 0.15)
+
         pdf = self._pdf_reader.read(local_pdf.local_path)
+        if progress_callback is not None:
+            progress_callback("Texto do PDF extraído", 0.3)
 
         if pdf.ocr_required:
-            ocr_result = self._ocr_service.extract_text(local_pdf.local_path)
+            ocr_result = self._ocr_service.extract_text(
+                local_pdf.local_path,
+                progress_callback=(
+                    lambda page, total: progress_callback(
+                        f"OCR página {page} de {total}",
+                        0.3 + 0.28 * (page / max(total, 1)),
+                    )
+                    if progress_callback is not None
+                    else None
+                ),
+            )
             if ocr_result.text.strip():
                 pdf = replace(
                     pdf,
@@ -342,6 +369,9 @@ class Processor:
                 )
             else:
                 self._logger.warning("OCR produced no usable text: %s", local_pdf.local_path)
+
+        if progress_callback is not None:
+            progress_callback("Dados fiscais interpretados", 0.65)
 
         nota = self._parser_manager.parse(
             pdf,

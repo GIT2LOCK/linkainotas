@@ -11,7 +11,7 @@ from dataclasses import dataclass
 import os
 from pathlib import Path
 import shutil
-from typing import Any
+from typing import Any, Callable
 
 from lumina_bot.core.logger import get_logger
 from lumina_bot.core.pdf_reader import PdfWord
@@ -35,7 +35,11 @@ class OcrService:
     def __init__(self) -> None:
         self._logger = get_logger(self.__class__.__name__)
 
-    def extract_text(self, path: Path) -> OcrResult:
+    def extract_text(
+        self,
+        path: Path,
+        progress_callback: Callable[[int, int], None] | None = None,
+    ) -> OcrResult:
         """Render each page and extract Portuguese text with coordinates."""
         try:
             import fitz
@@ -112,6 +116,12 @@ class OcrService:
                                 y1=float(data["top"][index] + data["height"][index]) / scale,
                             )
                         )
+
+                    if progress_callback is not None:
+                        try:
+                            progress_callback(page_number, document.page_count)
+                        except Exception:
+                            self._logger.exception("Could not report OCR progress.")
 
             text = "\n\n".join(pages).strip()
             confidence = round(sum(confidences) / len(confidences) / 100, 3) if confidences else None

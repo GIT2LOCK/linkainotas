@@ -8,7 +8,7 @@ import time
 import re
 from dataclasses import replace
 from pathlib import Path
-from typing import Any
+from typing import Any, Callable
 
 from lumina_bot.config import PROJECT_ROOT, get_supabase_config
 from lumina_bot.core.excel_writer import ExcelWriter
@@ -199,7 +199,16 @@ class DocumentProcessingService:
                         source_hash,
                     )
 
-                pdf = self._read_pdf_with_ocr(working_path)
+                pdf = self._read_pdf_with_ocr(
+                    working_path,
+                    progress_callback=lambda page, total: self._update_processing_progress(
+                        completed=completed_documents,
+                        total=len(document_paths),
+                        current_file=source_path.name,
+                        phase=f"OCR página {page} de {total}",
+                        stage_progress=0.1 + 0.3 * (page / max(total, 1)),
+                    ),
+                )
                 self._registry.update_processing(
                     completed=completed_documents,
                     total=len(document_paths),
@@ -228,11 +237,26 @@ class DocumentProcessingService:
 
                     xml_text = self._read_xml(xml_working_path)
 
+                self._registry.update_processing(
+                    completed=completed_documents,
+                    total=len(document_paths),
+                    current_file=source_path.name,
+                    phase="Dados auxiliares identificados",
+                    stage_progress=0.52,
+                )
+
                 nota = self._parser_manager.parse(
                     pdf,
                     remote_path=None,
                     xml_text=xml_text,
                     xml_local_path=xml_working_path,
+                )
+                self._registry.update_processing(
+                    completed=completed_documents,
+                    total=len(document_paths),
+                    current_file=source_path.name,
+                    phase="Dados fiscais interpretados",
+                    stage_progress=0.64,
                 )
                 self._registry.update_processing(
                     completed=completed_documents,
@@ -461,13 +485,20 @@ class DocumentProcessingService:
             stage_progress=stage_progress,
         )
 
-    def _read_pdf_with_ocr(self, path: Path) -> PdfReadResult:
+    def _read_pdf_with_ocr(
+        self,
+        path: Path,
+        progress_callback: Callable[[int, int], None] | None = None,
+    ) -> PdfReadResult:
         """Read a local PDF and OCR it when its text layer is incomplete."""
         pdf = self._pdf_reader.read(path)
         if not pdf.ocr_required:
             return pdf
 
-        ocr_result = self._ocr_service.extract_text(path)
+        ocr_result = self._ocr_service.extract_text(
+            path,
+            progress_callback=progress_callback,
+        )
         if not ocr_result.text.strip():
             raise RuntimeError(
                 "OCR necessario para este PDF, mas nenhum texto foi reconhecido. "

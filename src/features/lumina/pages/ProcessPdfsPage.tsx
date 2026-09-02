@@ -157,7 +157,7 @@ export function ProcessPdfsPage() {
     };
 
     void loadProgress();
-    const interval = window.setInterval(() => void loadProgress(), 800);
+    const interval = window.setInterval(() => void loadProgress(), 250);
 
     return () => {
       disposed = true;
@@ -813,12 +813,23 @@ function processingPercent(progress: ProcessingProgress | null): number | null {
     !progress ||
     progress.status !== "running" ||
     progress.total <= 0 ||
-    (progress.progress <= 0 && progress.completed <= 0)
+    (progress.progress <= 0 && progress.completed <= 0) ||
+    isLongRunningPhase(progress.phase)
   ) {
     return null;
   }
 
   return Math.min(99, Math.max(1, Math.round(progress.progress)));
+}
+
+function isLongRunningPhase(phase: string | null | undefined): boolean {
+  const normalized = phase?.trim().toLowerCase() ?? "";
+  return (
+    normalized === "lendo pdf" ||
+    normalized === "baixando e lendo pdf" ||
+    normalized === "lendo xml" ||
+    normalized.startsWith("ocr página")
+  );
 }
 
 function mergeProgressSnapshot(
