@@ -53,11 +53,14 @@ export const getCurrentSession = createServerFn({ method: "GET" }).handler(
         authUserId: profile.authUserId,
         nome: profile.nome,
         email: profile.email,
-        permissao: profile.permissao,
+        permissao: profile.perfilInterno,
+        perfilInterno: profile.perfilInterno,
+        isPlatformSuperadmin: profile.isPlatformSuperadmin,
         empresaId: profile.empresaId,
         avatarUrl: profile.avatarUrl,
       },
     };
+
   },
 );
 
