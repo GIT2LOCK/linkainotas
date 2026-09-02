@@ -5,8 +5,12 @@
  * as permissões internas no servidor — o frontend nunca é a única barreira.
  */
 import { createServerFn } from "@tanstack/react-start";
+import type { SupabaseClient } from "@supabase/supabase-js";
 
 import { requireLinkaiUser } from "@/lib/auth/require-user";
+import type { Database } from "@/integrations/supabase/types";
+
+type AuthedClient = SupabaseClient<Database>;
 
 export type ObraItem = {
   id: string;
@@ -65,15 +69,7 @@ export type AtividadeItem = {
 
 const TWO_FACTOR = ["required", "optional", "disabled"] as const;
 
-type AuthedContext = Awaited<ReturnType<typeof getContextType>>;
-declare function getContextType(): Promise<{ supabase: unknown; user: unknown }>;
-
-async function assertPermissao(
-  supabase: {
-    rpc: (fn: "linkai_has_permissao", args: { _permissao: string }) => Promise<{ data: unknown }>;
-  },
-  permissao: string,
-) {
+async function assertPermissao(supabase: AuthedClient, permissao: string) {
   const { data } = await supabase.rpc("linkai_has_permissao", { _permissao: permissao });
   if (data !== true) throw new Response("Forbidden", { status: 403 });
 }
@@ -302,16 +298,7 @@ export const assignUsuario = createServerFn({ method: "POST" })
 
 /** Regras de escopo replicadas no servidor (o banco também as impõe). */
 async function assertAtribuicaoValida(
-  supabase: {
-    from: (table: "linkai_obras") => {
-      select: (columns: string) => {
-        eq: (
-          column: string,
-          value: string,
-        ) => { maybeSingle: () => Promise<{ data: { tipo: string } | null }> };
-      };
-    };
-  },
+  supabase: AuthedClient,
   obraId: string,
   perfilCodigo: string,
 ) {
@@ -401,5 +388,3 @@ export const listAtividades = createServerFn({ method: "GET" })
 function asText(value: unknown): string | null {
   return typeof value === "string" || typeof value === "number" ? String(value) : null;
 }
-
-export type { AuthedContext };
