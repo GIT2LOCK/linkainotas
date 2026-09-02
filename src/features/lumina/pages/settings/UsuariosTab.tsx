@@ -123,10 +123,8 @@ export function UsuariosTab({
     setFeedback(null);
   }
 
-  function handleObraChange(event: React.ChangeEvent<HTMLSelectElement>) {
-    const selected = Array.from(event.target.selectedOptions).map((option) => option.value);
-    setObraIds(selected);
-  }
+
+
 
   const overrides = useMemo(
     () =>
