@@ -22,8 +22,6 @@ const TWO_FACTOR_LABEL: Record<string, string> = {
   disabled: "Desativado",
 };
 
-type ObraSelecao = { obraId: string; perfilCodigo: string; principal: boolean };
-
 export function UsuariosTab({
   perfis,
   permissoes,
@@ -42,7 +40,7 @@ export function UsuariosTab({
   const [perfilCodigo, setPerfilCodigo] = useState("");
   const [twoFactorPolicy, setTwoFactorPolicy] = useState("required");
   const [ativo, setAtivo] = useState(true);
-  const [selecionadas, setSelecionadas] = useState<ObraSelecao[]>([]);
+  const [obraIds, setObraIds] = useState<string[]>([]);
   const [permissoesEfetivas, setPermissoesEfetivas] = useState<Record<string, boolean>>({});
   const [showPermissoes, setShowPermissoes] = useState(false);
   const [feedback, setFeedback] = useState<string | null>(null);
@@ -67,10 +65,13 @@ export function UsuariosTab({
   );
 
   const perfilSelecionado = perfisAtribuiveis.find((perfil) => perfil.codigo === perfilCodigo);
-  const obrasPermitidas =
-    perfilSelecionado?.codigo === "supervisor_empresa"
-      ? obraList.filter((obra) => obra.tipo === "escritorio")
-      : obraList;
+
+  const obrasDisponiveis = useMemo(() => {
+    if (perfilSelecionado?.codigo === "supervisor_empresa") {
+      return obraList.filter((obra) => obra.tipo === "escritorio");
+    }
+    return obraList;
+  }, [perfilSelecionado, obraList]);
 
   const padraoDoPerfil = useMemo(() => {
     const set = new Set(perfilSelecionado?.permissoes ?? []);
@@ -79,7 +80,6 @@ export function UsuariosTab({
     return map;
   }, [perfilSelecionado, permissoes]);
 
-  /** Ao trocar de função, o editor volta para o padrão dela. */
   function aplicarPerfil(codigo: string) {
     setPerfilCodigo(codigo);
     const perfil = perfisAtribuiveis.find((item) => item.codigo === codigo);
@@ -87,7 +87,6 @@ export function UsuariosTab({
     const map: Record<string, boolean> = {};
     for (const permissao of permissoes) map[permissao.codigo] = set.has(permissao.codigo);
     setPermissoesEfetivas(map);
-    setSelecionadas((atual) => atual.map((item) => ({ ...item, perfilCodigo: codigo })));
   }
 
   function resetForm() {
@@ -95,10 +94,11 @@ export function UsuariosTab({
     setEmail("");
     setUsuarioId("");
     setPerfilCodigo("");
-    setSelecionadas([]);
+    setObraIds([]);
     setPermissoesEfetivas({});
     setTwoFactorPolicy("required");
     setAtivo(true);
+    setShowPermissoes(false);
   }
 
   function carregarUsuario(usuario: UsuarioItem) {
@@ -109,16 +109,9 @@ export function UsuariosTab({
     setTwoFactorPolicy(usuario.twoFactorPolicy);
     setAtivo(usuario.ativo);
 
-    const principal = usuario.obras.find((item) => item.principal) ?? usuario.obras[0];
-    const codigo = principal?.perfilCodigo ?? "";
+    const codigo = usuario.perfilCodigo ?? "";
     setPerfilCodigo(codigo);
-    setSelecionadas(
-      usuario.obras.map((item) => ({
-        obraId: item.obraId,
-        perfilCodigo: item.perfilCodigo,
-        principal: item.principal,
-      })),
-    );
+    setObraIds(usuario.obras.map((item) => item.obraId));
 
     const perfil = perfis.find((item) => item.codigo === codigo);
     const set = new Set(perfil?.permissoes ?? []);
@@ -130,33 +123,9 @@ export function UsuariosTab({
     setFeedback(null);
   }
 
-  function toggleObra(obraId: string) {
-    setSelecionadas((atual) => {
-      const existe = atual.some((item) => item.obraId === obraId);
-      if (existe) {
-        const restante = atual.filter((item) => item.obraId !== obraId);
-        if (restante.length > 0 && !restante.some((item) => item.principal)) {
-          restante[0] = { ...restante[0]!, principal: true };
-        }
-        return restante;
-      }
-      return [
-        ...atual,
-        { obraId, perfilCodigo: perfilCodigo, principal: atual.length === 0 },
-      ];
-    });
-  }
-
-  function definirPrincipal(obraId: string) {
-    setSelecionadas((atual) =>
-      atual.map((item) => ({ ...item, principal: item.obraId === obraId })),
-    );
-  }
-
-  function setPerfilDaObra(obraId: string, codigo: string) {
-    setSelecionadas((atual) =>
-      atual.map((item) => (item.obraId === obraId ? { ...item, perfilCodigo: codigo } : item)),
-    );
+  function handleObraChange(event: React.ChangeEvent<HTMLSelectElement>) {
+    const selected = Array.from(event.target.selectedOptions).map((option) => option.value);
+    setObraIds(selected);
   }
 
   const overrides = useMemo(
@@ -177,10 +146,10 @@ export function UsuariosTab({
     setFeedback(null);
     setSaving(true);
     try {
-      const obrasPayload = selecionadas.map((item) => ({
-        obraId: item.obraId,
-        perfilCodigo: item.perfilCodigo || perfilCodigo,
-        principal: item.principal,
+      const obrasPayload = obraIds.map((obraId, index) => ({
+        obraId,
+        perfilCodigo,
+        principal: index === 0,
       }));
 
       if (mode === "convite") {
@@ -210,7 +179,7 @@ export function UsuariosTab({
   }
 
   const formValid =
-    selecionadas.length > 0 &&
+    obraIds.length > 0 &&
     perfilCodigo &&
     (mode === "convite" ? nome.trim() && email.trim() && twoFactorPolicy : usuarioId);
 
@@ -296,7 +265,7 @@ export function UsuariosTab({
         )}
 
         <label className="field">
-          <span>Função base</span>
+          <span>Função</span>
           <select onChange={(event) => aplicarPerfil(event.target.value)} value={perfilCodigo}>
             <option value="">Selecione</option>
             {perfisAtribuiveis.map((perfil) => (
@@ -305,6 +274,30 @@ export function UsuariosTab({
               </option>
             ))}
           </select>
+        </label>
+
+        <label className="field">
+          <span>Obras</span>
+          <select
+            className="multi-select"
+            disabled={obrasDisponiveis.length === 0}
+            multiple
+            onChange={handleObraChange}
+            value={obraIds}
+          >
+            {obrasDisponiveis.length === 0 ? (
+              <option disabled>Nenhuma obra disponível para esta função</option>
+            ) : (
+              obrasDisponiveis.map((obra) => (
+                <option key={obra.id} value={obra.id}>
+                  {obra.tipo === "escritorio" ? "ESCRITORIO" : obra.nome}
+                </option>
+              ))
+            )}
+          </select>
+          <p className="field-hint">
+            Mantenha Ctrl (Windows) ou Cmd (Mac) pressionado para selecionar várias.
+          </p>
         </label>
 
         <label className="field">
@@ -331,66 +324,6 @@ export function UsuariosTab({
             </select>
           </label>
         ) : null}
-      </div>
-
-      <div className="content-band">
-        <div>
-          <h3>Obras do usuário</h3>
-          <p>
-            Marque quantas obras quiser. A obra principal define o acesso padrão; cada obra pode ter
-            uma função diferente.
-          </p>
-        </div>
-      </div>
-
-      <div className="obra-picker">
-        {obrasPermitidas.length === 0 ? (
-          <p className="hint">Nenhuma obra disponível para esta função.</p>
-        ) : (
-          obrasPermitidas.map((obra) => {
-            const selecao = selecionadas.find((item) => item.obraId === obra.id);
-            const label = obra.tipo === "escritorio" ? "ESCRITORIO" : obra.nome;
-            return (
-              <div className={`obra-option ${selecao ? "is-on" : ""}`} key={obra.id}>
-                <label className="obra-option-main">
-                  <input
-                    checked={Boolean(selecao)}
-                    onChange={() => toggleObra(obra.id)}
-                    type="checkbox"
-                  />
-                  <span>{label}</span>
-                </label>
-
-                {selecao ? (
-                  <div className="obra-option-config">
-                    <select
-                      onChange={(event) => setPerfilDaObra(obra.id, event.target.value)}
-                      value={selecao.perfilCodigo || perfilCodigo}
-                    >
-                      {perfisAtribuiveis
-                        .filter(
-                          (perfil) =>
-                            perfil.codigo !== "supervisor_empresa" || obra.tipo === "escritorio",
-                        )
-                        .map((perfil) => (
-                          <option key={perfil.codigo} value={perfil.codigo}>
-                            {perfil.nome}
-                          </option>
-                        ))}
-                    </select>
-                    <button
-                      className={`button ${selecao.principal ? "primary" : "ghost"}`}
-                      onClick={() => definirPrincipal(obra.id)}
-                      type="button"
-                    >
-                      {selecao.principal ? "Principal" : "Tornar principal"}
-                    </button>
-                  </div>
-                ) : null}
-              </div>
-            );
-          })
-        )}
       </div>
 
       <div className="content-band">
@@ -438,7 +371,7 @@ export function UsuariosTab({
               </button>
             );
           })}
-          {perfilCodigo ? null : <p className="hint">Escolha a função base primeiro.</p>}
+          {perfilCodigo ? null : <p className="hint">Escolha a função primeiro.</p>}
         </div>
       ) : null}
 
