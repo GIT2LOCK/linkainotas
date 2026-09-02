@@ -2523,7 +2523,8 @@
 }
 
 .role-chip.is-on {
-  border-color: color-mix(in oklch, var(--accent) 55%, transparent);
+  border-color: var(--accent-soft);
+  background: var(--accent-muted);
   color: var(--accent);
 }
 
