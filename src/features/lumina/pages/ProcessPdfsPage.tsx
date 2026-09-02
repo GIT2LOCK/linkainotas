@@ -23,6 +23,7 @@ import type {
   DownloadableFile,
   ExcelMode,
   ProcessingOptions,
+  ProcessingProgress,
   ProcessingResponse,
   ProcessingSource,
 } from "../types/backend";
@@ -127,6 +128,42 @@ export function ProcessPdfsPage() {
     callBackend<ProcessingResponse | null>("documents.last"),
   );
   const { run: loadLastProcessing } = lastProcessingAction;
+  const [processingProgress, setProcessingProgress] = useState<ProcessingProgress | null>(null);
+
+  useEffect(() => {
+    if (!action.loading) {
+      return;
+    }
+
+    let disposed = false;
+    let pending = false;
+
+    const loadProgress = async () => {
+      if (pending) {
+        return;
+      }
+
+      pending = true;
+      try {
+        const progress = await callBackend<ProcessingProgress>("documents.progress");
+        if (!disposed) {
+          setProcessingProgress(progress);
+        }
+      } catch {
+        // The main processing request remains the source of truth if polling is unavailable.
+      } finally {
+        pending = false;
+      }
+    };
+
+    void loadProgress();
+    const interval = window.setInterval(() => void loadProgress(), 800);
+
+    return () => {
+      disposed = true;
+      window.clearInterval(interval);
+    };
+  }, [action.loading]);
 
   useEffect(() => {
     let active = true;
@@ -183,6 +220,7 @@ export function ProcessPdfsPage() {
 
     setSelectionError(null);
     setSaveNotice(null);
+    setProcessingProgress(null);
 
     if (
       options.downloadPdfsLocally &&
@@ -203,7 +241,6 @@ export function ProcessPdfsPage() {
         );
       }
     }
-
 
     try {
       const result = await action.run({
@@ -273,7 +310,6 @@ export function ProcessPdfsPage() {
       setSelectionError(selectionDialogError(error));
     }
   }
-
 
   async function selectFolder() {
     setSelectionError(null);
@@ -383,7 +419,9 @@ export function ProcessPdfsPage() {
                 onClick={runProcessing}
                 type="button"
               >
-                {action.loading ? "Processando" : "Processar"}
+                {action.loading
+                  ? `Processando ${processingPercent(processingProgress)}%`
+                  : "Processar"}
                 {action.loading ? (
                   <LoaderCircle className="spin" size={18} />
                 ) : (
@@ -392,6 +430,13 @@ export function ProcessPdfsPage() {
               </button>
             </div>
           </section>
+
+          {action.loading ? (
+            <ProcessingProgressPanel
+              fallbackTotal={selectedPaths.length}
+              progress={processingProgress}
+            />
+          ) : null}
 
           <div className="process-summary">
             <MetricCard icon={FileText} label="Documentos" value={rows.length} />
@@ -683,6 +728,65 @@ function SourceOption({ active, description, icon: Icon, label, onClick }: Sourc
       </span>
     </button>
   );
+}
+
+interface ProcessingProgressPanelProps {
+  fallbackTotal: number;
+  progress: ProcessingProgress | null;
+}
+
+function ProcessingProgressPanel({ fallbackTotal, progress }: ProcessingProgressPanelProps) {
+  const percent = processingPercent(progress);
+  const total = progress?.total || fallbackTotal;
+  const completed = Math.min(progress?.completed ?? 0, total || 0);
+  const currentFile = progress?.currentFile ? progress.currentFile.split(/[\\/]/).pop() : null;
+
+  return (
+    <section className="processing-progress-panel" aria-label="Andamento do processamento">
+      <div className="processing-progress-header">
+        <div
+          aria-hidden="true"
+          className="progress-ring"
+          style={{
+            background: `conic-gradient(var(--accent) ${percent * 3.6}deg, var(--surface-muted) 0deg)`,
+          }}
+        >
+          <span>{percent}%</span>
+        </div>
+        <div className="processing-progress-copy">
+          <div className="progress-heading">
+            <h3>Processando documentos</h3>
+            <span>{progress?.phase ?? "Preparando processamento"}</span>
+          </div>
+          <p>
+            {currentFile
+              ? `Arquivo atual: ${currentFile}`
+              : "Aguarde enquanto os documentos são lidos e convertidos."}
+          </p>
+        </div>
+      </div>
+      <div
+        aria-label={`Processamento em ${percent}%`}
+        aria-valuemax={100}
+        aria-valuemin={0}
+        aria-valuenow={percent}
+        className="progress-track"
+        role="progressbar"
+      >
+        <span style={{ width: `${percent}%` }} />
+      </div>
+      <div className="progress-meta">
+        <span>
+          {total > 0 ? `${completed} de ${total} documento(s)` : "Preparando documentos..."}
+        </span>
+        <span>Acompanhamento em tempo real</span>
+      </div>
+    </section>
+  );
+}
+
+function processingPercent(progress: ProcessingProgress | null): number {
+  return Math.min(99, Math.max(0, Math.round(progress?.progress ?? 4)));
 }
 
 async function copyBrowserFilesToDirectory(files: File[], directory: BrowserDirectoryHandle) {

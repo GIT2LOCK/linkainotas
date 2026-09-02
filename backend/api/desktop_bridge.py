@@ -59,6 +59,9 @@ class DesktopBridge:
             if action == "documents.last":
                 return success(DocumentProcessingService().last_processing())
 
+            if action == "documents.progress":
+                return success(DocumentProcessingService().processing_progress())
+
             if action == "downloads.default_path":
                 return success(DocumentProcessingService().default_download_path())
 

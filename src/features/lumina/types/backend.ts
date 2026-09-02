@@ -70,6 +70,18 @@ export interface ProcessingResponse {
   };
 }
 
+export interface ProcessingProgress {
+  status: "idle" | "running" | "completed" | "error";
+  source: string;
+  total: number;
+  completed: number;
+  progress: number;
+  currentFile: string | null;
+  phase: string;
+  error: string | null;
+  updatedAt: string | null;
+}
+
 export interface DownloadableFile {
   name: string;
   contentBase64: string;

@@ -42,15 +42,27 @@ class DocumentProcessingService:
     def process(self, options: ProcessingOptions) -> dict[str, Any]:
         """Process documents from the selected source."""
         download_dir = self._resolve_download_dir(options)
+        self._registry.start_processing(source=options.source)
 
-        if options.source == "supabase":
-            return self._process_supabase(options, download_dir)
+        try:
+            if options.source == "supabase":
+                response = self._process_supabase(options, download_dir)
+            else:
+                response = self._process_local(options, download_dir)
+        except Exception as exc:
+            self._registry.fail_processing(str(exc))
+            raise
 
-        return self._process_local(options, download_dir)
+        self._registry.complete_processing()
+        return response
 
     def last_processing(self) -> dict[str, Any] | None:
         """Return the last processing response persisted for the UI."""
         return self._registry.last_processing()
+
+    def processing_progress(self) -> dict[str, Any]:
+        """Return the current processing progress persisted for the UI."""
+        return self._registry.processing_progress()
 
     def list_files(self) -> list[dict[str, Any]]:
         """Return files registered by previous processing sessions."""
@@ -74,11 +86,18 @@ class DocumentProcessingService:
         excel_output_dir = PROJECT_ROOT / "output" / "excel"
         previous_excel_exports = self._export_state(excel_output_dir, "*.xlsx")
         previous_xml_exports = self._export_state(self._xml_output_dir, "*.xml")
-        processor = Processor(config=config)
+        processor = Processor(config=config, progress_callback=self._update_processing_progress)
         summary = processor.run(
             generate_excel=options.generate_excel,
             excel_mode=options.excel_mode,
             ignore_duplicates=options.ignore_duplicates,
+        )
+        self._registry.update_processing(
+            completed=summary.listed,
+            total=summary.listed,
+            current_file=None,
+            phase="Gerando arquivos de saída",
+            stage_progress=0.95,
         )
         elapsed = time.perf_counter() - started
         excel_files = self._file_exports(
@@ -125,6 +144,7 @@ class DocumentProcessingService:
             options.paths,
             recursive=options.process_subfolders,
         )
+        self._registry.set_processing_total(len(document_paths))
         pdf_paths = [
             path for path in document_paths if path.suffix.lower() == ".pdf"
         ]
@@ -138,10 +158,18 @@ class DocumentProcessingService:
         file_records: list[dict[str, Any]] = []
         failed = 0
         duplicated = 0
+        completed_documents = 0
         previous_xml_exports = self._export_state(self._xml_output_dir, "*.xml")
 
         for source_path in pdf_paths:
             source_hash = self._safe_sha256(source_path)
+            self._registry.update_processing(
+                completed=completed_documents,
+                total=len(document_paths),
+                current_file=source_path.name,
+                phase="Lendo PDF",
+                stage_progress=0.05,
+            )
 
             if options.ignore_duplicates and self._registry.has_success_hash(source_hash):
                 duplicated += 1
@@ -151,6 +179,13 @@ class DocumentProcessingService:
                     self._file_record_from_row(row, source_path, source_path)
                 )
                 self._logger.info("PDF duplicated and ignored: %s", source_path)
+                completed_documents += 1
+                self._registry.update_processing(
+                    completed=completed_documents,
+                    total=len(document_paths),
+                    current_file=source_path.name,
+                    phase="Documento duplicado ignorado",
+                )
                 continue
 
             try:
@@ -165,6 +200,13 @@ class DocumentProcessingService:
                     )
 
                 pdf = self._read_pdf_with_ocr(working_path)
+                self._registry.update_processing(
+                    completed=completed_documents,
+                    total=len(document_paths),
+                    current_file=source_path.name,
+                    phase="Mapeando dados fiscais",
+                    stage_progress=0.4,
+                )
                 xml_source_path = self._find_xml_for_pdf(
                     source_path,
                     pdf.text,
@@ -192,12 +234,26 @@ class DocumentProcessingService:
                     xml_text=xml_text,
                     xml_local_path=xml_working_path,
                 )
+                self._registry.update_processing(
+                    completed=completed_documents,
+                    total=len(document_paths),
+                    current_file=source_path.name,
+                    phase="Gerando XML normalizado",
+                    stage_progress=0.7,
+                )
                 nota.status_processamento = "success"
                 nota.caminho_local = str(working_path)
                 generated_xml_path = self._xml_writer.write(
                     nota,
                     self._xml_output_dir,
                     source_format="pdf",
+                )
+                self._registry.update_processing(
+                    completed=completed_documents,
+                    total=len(document_paths),
+                    current_file=source_path.name,
+                    phase="Finalizando documento",
+                    stage_progress=0.85,
                 )
                 nota.caminho_xml_local = str(generated_xml_path)
                 notas.append(nota)
@@ -238,12 +294,34 @@ class DocumentProcessingService:
                     self._file_record_from_row(row, source_path, source_path)
                 )
                 self._logger.exception("PDF failed and will be skipped: %s", source_path)
+            finally:
+                completed_documents += 1
+                self._registry.update_processing(
+                    completed=completed_documents,
+                    total=len(document_paths),
+                    current_file=source_path.name,
+                    phase="Documento concluído",
+                )
 
         for source_path in xml_paths:
             if source_path.resolve() in matched_xmls:
+                completed_documents += 1
+                self._registry.update_processing(
+                    completed=completed_documents,
+                    total=len(document_paths),
+                    current_file=source_path.name,
+                    phase="XML associado ao PDF",
+                )
                 continue
 
             source_hash = self._safe_sha256(source_path)
+            self._registry.update_processing(
+                completed=completed_documents,
+                total=len(document_paths),
+                current_file=source_path.name,
+                phase="Lendo XML",
+                stage_progress=0.2,
+            )
 
             if options.ignore_duplicates and self._registry.has_success_hash(source_hash):
                 duplicated += 1
@@ -253,6 +331,13 @@ class DocumentProcessingService:
                     self._file_record_from_row(row, source_path, source_path)
                 )
                 self._logger.info("XML duplicated and ignored: %s", source_path)
+                completed_documents += 1
+                self._registry.update_processing(
+                    completed=completed_documents,
+                    total=len(document_paths),
+                    current_file=source_path.name,
+                    phase="Documento duplicado ignorado",
+                )
                 continue
 
             try:
@@ -267,6 +352,13 @@ class DocumentProcessingService:
                     )
 
                 nota = self._parser_manager.parse_xml(working_path)
+                self._registry.update_processing(
+                    completed=completed_documents,
+                    total=len(document_paths),
+                    current_file=source_path.name,
+                    phase="Finalizando XML",
+                    stage_progress=0.75,
+                )
                 nota.status_processamento = "success"
                 nota.caminho_xml_local = str(working_path)
                 notas.append(nota)
@@ -295,7 +387,22 @@ class DocumentProcessingService:
                     self._file_record_from_row(row, source_path, source_path)
                 )
                 self._logger.exception("XML failed and will be skipped: %s", source_path)
+            finally:
+                completed_documents += 1
+                self._registry.update_processing(
+                    completed=completed_documents,
+                    total=len(document_paths),
+                    current_file=source_path.name,
+                    phase="Documento concluído",
+                )
 
+        self._registry.update_processing(
+            completed=completed_documents,
+            total=len(document_paths),
+            current_file=None,
+            phase="Gerando arquivos de saída",
+            stage_progress=0.95,
+        )
         xml_files = self._file_exports(
             self._xml_output_dir,
             previous_xml_exports,
@@ -336,6 +443,22 @@ class DocumentProcessingService:
             source=options.source,
             download_path=download_dir,
             download_label=options.download_path_label,
+        )
+
+    def _update_processing_progress(
+        self,
+        completed: int,
+        total: int,
+        current_file: str | None,
+        phase: str,
+        stage_progress: float,
+    ) -> None:
+        self._registry.update_processing(
+            completed=completed,
+            total=total,
+            current_file=current_file,
+            phase=phase,
+            stage_progress=stage_progress,
         )
 
     def _read_pdf_with_ocr(self, path: Path) -> PdfReadResult:

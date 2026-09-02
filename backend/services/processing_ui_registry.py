@@ -29,6 +29,117 @@ class ProcessingUiRegistry:
         self._default_download_path.mkdir(parents=True, exist_ok=True)
         return self._default_download_path
 
+    def processing_progress(self) -> dict[str, Any]:
+        """Return the current document-processing progress for the UI."""
+        state = self._load()
+        progress = state.get("processing")
+        return deepcopy(progress) if isinstance(progress, dict) else self._empty_progress()
+
+    def start_processing(self, *, source: str, total: int | None = None) -> None:
+        """Start a progress record before the potentially long processing call."""
+        state = self._load()
+        state["processing"] = self._progress_record(
+            source=source,
+            total=max(int(total or 0), 0),
+            status="running",
+            phase="Preparando processamento",
+        )
+        self._save(state)
+
+    def set_processing_total(self, total: int) -> None:
+        """Set the total after the selected source has been enumerated."""
+        state = self._load()
+        progress = state.get("processing")
+        if not isinstance(progress, dict) or progress.get("status") != "running":
+            return
+
+        progress["total"] = max(int(total), 0)
+        progress["updatedAt"] = self._now()
+        self._save(state)
+
+    def update_processing(
+        self,
+        *,
+        completed: int,
+        total: int,
+        current_file: str | None,
+        phase: str,
+        stage_progress: float = 0.0,
+    ) -> None:
+        """Persist a lightweight progress snapshot without blocking processing."""
+        state = self._load()
+        progress = state.get("processing")
+        if not isinstance(progress, dict) or progress.get("status") != "running":
+            return
+
+        normalized_total = max(int(total), 0)
+        normalized_completed = min(max(int(completed), 0), normalized_total)
+        normalized_stage = min(max(float(stage_progress), 0.0), 1.0)
+        percentage = 0
+
+        if normalized_total:
+            percentage = round(
+                min(96.0, ((normalized_completed + normalized_stage) / normalized_total) * 96)
+            )
+        else:
+            percentage = max(int(progress.get("progress") or 0), 4)
+
+        progress.update(
+            {
+                "total": normalized_total,
+                "completed": normalized_completed,
+                "progress": percentage,
+                "currentFile": current_file,
+                "phase": phase,
+                "error": None,
+                "updatedAt": self._now(),
+            }
+        )
+        self._save(state)
+
+    def complete_processing(self) -> None:
+        """Mark the current processing run as complete."""
+        state = self._load()
+        progress = state.get("processing")
+        if not isinstance(progress, dict):
+            return
+
+        progress.update(
+            {
+                "status": "completed",
+                "completed": int(progress.get("total") or 0),
+                "progress": 100,
+                "currentFile": None,
+                "phase": "Processamento concluído",
+                "error": None,
+                "updatedAt": self._now(),
+            }
+        )
+        self._save(state)
+
+    def fail_processing(self, error: str) -> None:
+        """Keep the last progress snapshot available when processing fails."""
+        state = self._load()
+        progress = state.get("processing")
+        if not isinstance(progress, dict):
+            progress = self._progress_record(
+                source="unknown",
+                total=0,
+                status="error",
+                phase="Falha",
+            )
+            state["processing"] = progress
+
+        progress.update(
+            {
+                "status": "error",
+                "phase": "Falha no processamento",
+                "error": error,
+                "updatedAt": self._now(),
+            }
+        )
+        self._save(state)
+
     def last_processing(self) -> dict[str, Any] | None:
         """Return the most recent processing response shown in the UI."""
         state = self._load()
@@ -208,6 +319,7 @@ class ProcessingUiRegistry:
         data.setdefault("lastProcessing", None)
         data.setdefault("history", [])
         data.setdefault("files", [])
+        data.setdefault("processing", self._empty_progress())
         return data
 
     def _save(self, state: dict[str, Any]) -> None:
@@ -225,7 +337,42 @@ class ProcessingUiRegistry:
             "lastProcessing": None,
             "history": [],
             "files": [],
+            "processing": ProcessingUiRegistry._empty_progress(),
         }
+
+    @staticmethod
+    def _now() -> str:
+        return datetime.now().isoformat(timespec="seconds")
+
+    @classmethod
+    def _progress_record(
+        cls,
+        *,
+        source: str,
+        total: int,
+        status: str,
+        phase: str,
+    ) -> dict[str, Any]:
+        return {
+            "status": status,
+            "source": source,
+            "total": total,
+            "completed": 0,
+            "progress": 0,
+            "currentFile": None,
+            "phase": phase,
+            "error": None,
+            "updatedAt": cls._now(),
+        }
+
+    @classmethod
+    def _empty_progress(cls) -> dict[str, Any]:
+        return cls._progress_record(
+            source="unknown",
+            total=0,
+            status="idle",
+            phase="Aguardando processamento",
+        )
 
     @staticmethod
     def _file_key(record: dict[str, Any]) -> str | None:

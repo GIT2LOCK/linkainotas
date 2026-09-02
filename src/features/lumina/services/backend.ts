@@ -181,6 +181,20 @@ function fallbackForAction<T>(action: string, payload: object): T | undefined {
     return null as T;
   }
 
+  if (action === "documents.progress") {
+    return {
+      status: "idle",
+      source: "unknown",
+      total: 0,
+      completed: 0,
+      progress: 0,
+      currentFile: null,
+      phase: "Aguardando processamento",
+      error: null,
+      updatedAt: null,
+    } as T;
+  }
+
   if (action === "history.list" || action === "spreadsheets.list" || action === "files.list") {
     return [] as T;
   }
