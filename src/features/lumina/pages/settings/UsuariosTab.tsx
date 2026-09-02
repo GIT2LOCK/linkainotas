@@ -109,10 +109,11 @@ export function UsuariosTab({
     setTwoFactorPolicy(usuario.twoFactorPolicy);
     setAtivo(usuario.ativo);
 
-    setPerfilCodigo(usuario.perfilCodigo);
+    const codigo = usuario.perfilCodigo ?? "";
+    setPerfilCodigo(codigo);
     setObraIds(usuario.obras.map((item) => item.obraId));
 
-    const perfil = perfis.find((item) => item.codigo === usuario.perfilCodigo);
+    const perfil = perfis.find((item) => item.codigo === codigo);
     const set = new Set(perfil?.permissoes ?? []);
     const map: Record<string, boolean> = {};
     for (const permissao of permissoes) map[permissao.codigo] = set.has(permissao.codigo);
