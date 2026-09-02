@@ -58,13 +58,19 @@ export const getCurrentSession = createServerFn({ method: "GET" }).handler(
     const { data, error } = await supabase.auth.getUser();
     if (error || !data.user) return { user: null };
 
-    const { getLinkaiUserByAuthId } = await import("./shadow-user.server");
+    const { getLinkaiUserByAuthId, getAccessContext } = await import("./shadow-user.server");
     const profile = await getLinkaiUserByAuthId(data.user.id);
     if (!profile || !profile.ativo) return { user: null };
+
+    const access = await getAccessContext(profile.id, profile.isPlatformSuperadmin);
 
     return {
       user: {
         authUserId: profile.authUserId,
+        usuarioId: profile.id,
+        twoFactorPolicy: profile.twoFactorPolicy,
+        permissoes: access.permissoes,
+        obras: access.obras,
         nome: profile.nome,
         email: profile.email,
         permissao: profile.perfilInterno,
