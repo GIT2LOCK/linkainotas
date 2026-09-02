@@ -176,24 +176,39 @@ export const listUsuarios = createServerFn({ method: "GET" })
 
     const { data: vinculos } = await context.supabase
       .from("linkai_usuario_obras")
-      .select("usuario_id, perfil_codigo, principal, obra:linkai_obras(id, nome)")
+      .select("usuario_id, perfil_codigo, principal, obra:linkai_obras(id, nome, tipo)")
       .eq("ativo", true)
       .order("principal", { ascending: false });
 
-    const byUser = new Map<number, { obraId: string; obraNome: string; perfil: string }>();
+    const { data: overrides } = await context.supabase
+      .from("linkai_usuario_permissoes")
+      .select("usuario_id, permissao_codigo, concedida");
+
+    const byUser = new Map<number, UsuarioObraVinculo[]>();
     for (const row of vinculos ?? []) {
-      if (byUser.has(row.usuario_id)) continue;
-      const obra = row.obra as { id: string; nome: string } | null;
+      const obra = row.obra as { id: string; nome: string; tipo: string } | null;
       if (!obra) continue;
-      byUser.set(row.usuario_id, {
+      const list = byUser.get(row.usuario_id) ?? [];
+      list.push({
         obraId: obra.id,
         obraNome: obra.nome,
-        perfil: row.perfil_codigo,
+        obraTipo: obra.tipo,
+        perfilCodigo: row.perfil_codigo,
+        principal: row.principal === true,
       });
+      byUser.set(row.usuario_id, list);
+    }
+
+    const overridesByUser = new Map<number, { permissaoCodigo: string; concedida: boolean }[]>();
+    for (const row of overrides ?? []) {
+      const list = overridesByUser.get(row.usuario_id) ?? [];
+      list.push({ permissaoCodigo: row.permissao_codigo, concedida: row.concedida });
+      overridesByUser.set(row.usuario_id, list);
     }
 
     return (data ?? []).map((row) => {
-      const vinculo = byUser.get(row.id);
+      const obras = byUser.get(row.id) ?? [];
+      const principal = obras.find((item) => item.principal) ?? obras[0];
       return {
         id: row.id,
         nome: row.nome,
@@ -201,11 +216,16 @@ export const listUsuarios = createServerFn({ method: "GET" })
         ativo: row.ativo !== false,
         twoFactorPolicy: row.two_factor_policy,
         isPlatformSuperadmin: row.is_platform_superadmin,
-        obraId: vinculo?.obraId ?? null,
-        obraNome: vinculo?.obraNome ?? null,
-        perfilCodigo: vinculo?.perfil ?? null,
+        obraId: principal?.obraId ?? null,
+        obraNome: obras.length > 1
+          ? `${principal?.obraNome ?? "-"} +${obras.length - 1}`
+          : (principal?.obraNome ?? null),
+        perfilCodigo: principal?.perfilCodigo ?? null,
+        obras,
+        overrides: overridesByUser.get(row.id) ?? [],
       };
     });
+
   });
 
 export const listConvites = createServerFn({ method: "GET" })
