@@ -24,6 +24,14 @@ export type ObraItem = {
 };
 
 
+export type UsuarioObraVinculo = {
+  obraId: string;
+  obraNome: string;
+  obraTipo: string;
+  perfilCodigo: string;
+  principal: boolean;
+};
+
 export type UsuarioItem = {
   id: number;
   nome: string;
@@ -34,6 +42,8 @@ export type UsuarioItem = {
   obraNome: string | null;
   obraId: string | null;
   perfilCodigo: string | null;
+  obras: UsuarioObraVinculo[];
+  overrides: { permissaoCodigo: string; concedida: boolean }[];
 };
 
 export type ConviteItem = {
@@ -46,6 +56,7 @@ export type ConviteItem = {
   status: string;
   criadoEm: string;
 };
+
 
 export type PerfilItem = {
   codigo: string;
@@ -165,24 +176,39 @@ export const listUsuarios = createServerFn({ method: "GET" })
 
     const { data: vinculos } = await context.supabase
       .from("linkai_usuario_obras")
-      .select("usuario_id, perfil_codigo, principal, obra:linkai_obras(id, nome)")
+      .select("usuario_id, perfil_codigo, principal, obra:linkai_obras(id, nome, tipo)")
       .eq("ativo", true)
       .order("principal", { ascending: false });
 
-    const byUser = new Map<number, { obraId: string; obraNome: string; perfil: string }>();
+    const { data: overrides } = await context.supabase
+      .from("linkai_usuario_permissoes")
+      .select("usuario_id, permissao_codigo, concedida");
+
+    const byUser = new Map<number, UsuarioObraVinculo[]>();
     for (const row of vinculos ?? []) {
-      if (byUser.has(row.usuario_id)) continue;
-      const obra = row.obra as { id: string; nome: string } | null;
+      const obra = row.obra as { id: string; nome: string; tipo: string } | null;
       if (!obra) continue;
-      byUser.set(row.usuario_id, {
+      const list = byUser.get(row.usuario_id) ?? [];
+      list.push({
         obraId: obra.id,
         obraNome: obra.nome,
-        perfil: row.perfil_codigo,
+        obraTipo: obra.tipo,
+        perfilCodigo: row.perfil_codigo,
+        principal: row.principal === true,
       });
+      byUser.set(row.usuario_id, list);
+    }
+
+    const overridesByUser = new Map<number, { permissaoCodigo: string; concedida: boolean }[]>();
+    for (const row of overrides ?? []) {
+      const list = overridesByUser.get(row.usuario_id) ?? [];
+      list.push({ permissaoCodigo: row.permissao_codigo, concedida: row.concedida });
+      overridesByUser.set(row.usuario_id, list);
     }
 
     return (data ?? []).map((row) => {
-      const vinculo = byUser.get(row.id);
+      const obras = byUser.get(row.id) ?? [];
+      const principal = obras.find((item) => item.principal) ?? obras[0];
       return {
         id: row.id,
         nome: row.nome,
@@ -190,11 +216,16 @@ export const listUsuarios = createServerFn({ method: "GET" })
         ativo: row.ativo !== false,
         twoFactorPolicy: row.two_factor_policy,
         isPlatformSuperadmin: row.is_platform_superadmin,
-        obraId: vinculo?.obraId ?? null,
-        obraNome: vinculo?.obraNome ?? null,
-        perfilCodigo: vinculo?.perfil ?? null,
+        obraId: principal?.obraId ?? null,
+        obraNome: obras.length > 1
+          ? `${principal?.obraNome ?? "-"} +${obras.length - 1}`
+          : (principal?.obraNome ?? null),
+        perfilCodigo: principal?.perfilCodigo ?? null,
+        obras,
+        overrides: overridesByUser.get(row.id) ?? [],
       };
     });
+
   });
 
 export const listConvites = createServerFn({ method: "GET" })
@@ -223,6 +254,49 @@ export const listConvites = createServerFn({ method: "GET" })
     }));
   });
 
+export type ObraAtribuicaoInput = { obraId: string; perfilCodigo: string; principal?: boolean };
+export type PermissaoOverrideInput = { permissaoCodigo: string; concedida: boolean };
+
+function normalizeObras(value: unknown): ObraAtribuicaoInput[] {
+  if (!Array.isArray(value) || value.length === 0) {
+    throw new Error("Selecione ao menos uma obra.");
+  }
+  return value.map((item) => {
+    const row = item as ObraAtribuicaoInput;
+    return {
+      obraId: str(row?.obraId, "obra", 40),
+      perfilCodigo: str(row?.perfilCodigo, "função", 40),
+      principal: row?.principal === true,
+    };
+  });
+}
+
+function normalizeOverrides(value: unknown): PermissaoOverrideInput[] {
+  if (!Array.isArray(value)) return [];
+  return value.map((item) => {
+    const row = item as PermissaoOverrideInput;
+    return {
+      permissaoCodigo: str(row?.permissaoCodigo, "permissão", 60),
+      concedida: row?.concedida === true,
+    };
+  });
+}
+
+function toRpcObras(obras: ObraAtribuicaoInput[]) {
+  return obras.map((obra) => ({
+    obra_id: obra.obraId,
+    perfil_codigo: obra.perfilCodigo,
+    principal: obra.principal === true,
+  }));
+}
+
+function toRpcPermissoes(overrides: PermissaoOverrideInput[]) {
+  return overrides.map((item) => ({
+    permissao_codigo: item.permissaoCodigo,
+    concedida: item.concedida,
+  }));
+}
+
 /** Pré-cadastro por e-mail: sem senha, vinculado no primeiro acesso. */
 export const createConvite = createServerFn({ method: "POST" })
   .middleware([requireLinkaiUser])
@@ -230,9 +304,10 @@ export const createConvite = createServerFn({ method: "POST" })
     (data: {
       nome: string;
       email: string;
-      obraId: string;
       perfilCodigo: string;
       twoFactorPolicy: string;
+      obras: ObraAtribuicaoInput[];
+      overrides?: PermissaoOverrideInput[];
     }) => {
       const policy = str(data?.twoFactorPolicy, "política de 2FA", 20);
       if (!TWO_FACTOR.includes(policy as (typeof TWO_FACTOR)[number])) {
@@ -241,66 +316,77 @@ export const createConvite = createServerFn({ method: "POST" })
       return {
         nome: str(data?.nome, "nome"),
         email: str(data?.email, "e-mail").toLowerCase(),
-        obraId: str(data?.obraId, "obra", 40),
         perfilCodigo: str(data?.perfilCodigo, "função", 40),
         twoFactorPolicy: policy,
+        obras: normalizeObras(data?.obras),
+        overrides: normalizeOverrides(data?.overrides),
       };
     },
   )
   .handler(async ({ context, data }) => {
     await assertPermissao(context.supabase, "access.manage");
-    if (!context.user.empresaId) throw new Error("Usuário sem empresa vinculada.");
 
-    await assertAtribuicaoValida(context.supabase, data.obraId, data.perfilCodigo);
+    for (const obra of data.obras) {
+      await assertAtribuicaoValida(context.supabase, obra.obraId, obra.perfilCodigo);
+    }
 
-    const { error } = await context.supabase.from("linkai_user_convites").insert({
-      nome: data.nome,
-      email: data.email,
-      empresa_id: context.user.empresaId,
-      obra_id: data.obraId,
-      perfil_codigo: data.perfilCodigo,
-      two_factor_policy: data.twoFactorPolicy,
-      status: "pending",
-      criado_por: context.authUserId,
+    const { error } = await context.supabase.rpc("linkai_create_convite", {
+      p_nome: data.nome,
+      p_email: data.email,
+      p_perfil_codigo: data.perfilCodigo,
+      p_two_factor_policy: data.twoFactorPolicy,
+      p_obras: toRpcObras(data.obras),
+      p_permissoes: toRpcPermissoes(data.overrides),
     });
 
     if (error) throw new Error(error.message);
     return { ok: true };
   });
 
-/** Atribui um usuário existente a uma obra/função pela RPC segura. */
-export const assignUsuario = createServerFn({ method: "POST" })
+/** Atribui/edita as obras, o 2FA e as permissões de um usuário existente. */
+export const updateUsuarioAcessos = createServerFn({ method: "POST" })
   .middleware([requireLinkaiUser])
   .validator(
     (data: {
       usuarioId: number;
-      obraId: string;
-      perfilCodigo: string;
-      principal?: boolean;
+      obras: ObraAtribuicaoInput[];
+      overrides?: PermissaoOverrideInput[];
+      twoFactorPolicy?: string | null;
+      ativo?: boolean | null;
     }) => {
       if (typeof data?.usuarioId !== "number") throw new Error("Campo obrigatório: usuário.");
+      const policy = data?.twoFactorPolicy ? str(data.twoFactorPolicy, "política de 2FA", 20) : null;
+      if (policy && !TWO_FACTOR.includes(policy as (typeof TWO_FACTOR)[number])) {
+        throw new Error("Política de 2FA inválida.");
+      }
       return {
         usuarioId: data.usuarioId,
-        obraId: str(data?.obraId, "obra", 40),
-        perfilCodigo: str(data?.perfilCodigo, "função", 40),
-        principal: data?.principal === true,
+        obras: normalizeObras(data?.obras),
+        overrides: normalizeOverrides(data?.overrides),
+        twoFactorPolicy: policy,
+        ativo: typeof data?.ativo === "boolean" ? data.ativo : null,
       };
     },
   )
   .handler(async ({ context, data }) => {
     await assertPermissao(context.supabase, "access.manage");
-    await assertAtribuicaoValida(context.supabase, data.obraId, data.perfilCodigo);
 
-    const { error } = await context.supabase.rpc("linkai_assign_user_to_obra", {
+    for (const obra of data.obras) {
+      await assertAtribuicaoValida(context.supabase, obra.obraId, obra.perfilCodigo);
+    }
+
+    const { error } = await context.supabase.rpc("linkai_set_usuario_acessos", {
       p_usuario_id: data.usuarioId,
-      p_obra_id: data.obraId,
-      p_perfil_codigo: data.perfilCodigo,
-      p_principal: data.principal,
+      p_obras: toRpcObras(data.obras),
+      p_permissoes: toRpcPermissoes(data.overrides),
+      ...(data.twoFactorPolicy ? { p_two_factor_policy: data.twoFactorPolicy } : {}),
+      ...(data.ativo === null ? {} : { p_ativo: data.ativo }),
     });
 
     if (error) throw new Error(error.message);
     return { ok: true };
   });
+
 
 /** Regras de escopo replicadas no servidor (o banco também as impõe). */
 async function assertAtribuicaoValida(

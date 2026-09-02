@@ -1,17 +1,18 @@
 import { useEffect, useMemo, useState } from "react";
-import { RefreshCw, UserPlus } from "lucide-react";
+import { Check, Pencil, RefreshCw, ShieldCheck, UserPlus, X } from "lucide-react";
 
 import { DataTable } from "../../components/DataTable";
 import { useAsyncAction } from "../../hooks/useAsyncAction";
 import {
-  assignUsuario,
   createConvite,
   listConvites,
   listObras,
   listUsuarios,
+  updateUsuarioAcessos,
   type ConviteItem,
   type ObraItem,
   type PerfilItem,
+  type PermissaoItem,
   type UsuarioItem,
 } from "../../services/access.functions";
 
@@ -21,18 +22,29 @@ const TWO_FACTOR_LABEL: Record<string, string> = {
   disabled: "Desativado",
 };
 
-export function UsuariosTab({ perfis }: { perfis: PerfilItem[] }) {
+type ObraSelecao = { obraId: string; perfilCodigo: string; principal: boolean };
+
+export function UsuariosTab({
+  perfis,
+  permissoes,
+}: {
+  perfis: PerfilItem[];
+  permissoes: PermissaoItem[];
+}) {
   const usuarios = useAsyncAction(() => listUsuarios());
   const convites = useAsyncAction(() => listConvites());
   const obras = useAsyncAction(() => listObras());
 
-  const [mode, setMode] = useState<"convite" | "atribuir">("convite");
+  const [mode, setMode] = useState<"convite" | "editar">("convite");
   const [nome, setNome] = useState("");
   const [email, setEmail] = useState("");
   const [usuarioId, setUsuarioId] = useState("");
-  const [obraId, setObraId] = useState("");
   const [perfilCodigo, setPerfilCodigo] = useState("");
   const [twoFactorPolicy, setTwoFactorPolicy] = useState("required");
+  const [ativo, setAtivo] = useState(true);
+  const [selecionadas, setSelecionadas] = useState<ObraSelecao[]>([]);
+  const [permissoesEfetivas, setPermissoesEfetivas] = useState<Record<string, boolean>>({});
+  const [showPermissoes, setShowPermissoes] = useState(false);
   const [feedback, setFeedback] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
 
@@ -47,6 +59,8 @@ export function UsuariosTab({ perfis }: { perfis: PerfilItem[] }) {
   }, [reload, reloadConvites, reloadObras]);
 
   const obraList: ObraItem[] = obras.data ?? [];
+  const usuarioList: UsuarioItem[] = usuarios.data ?? [];
+
   const perfisAtribuiveis = useMemo(
     () => perfis.filter((perfil) => perfil.codigo !== "superadmin_2lock"),
     [perfis],
@@ -58,13 +72,157 @@ export function UsuariosTab({ perfis }: { perfis: PerfilItem[] }) {
       ? obraList.filter((obra) => obra.tipo === "escritorio")
       : obraList;
 
-  const usuarioRows = (usuarios.data ?? []).map((row: UsuarioItem) => ({
+  const padraoDoPerfil = useMemo(() => {
+    const set = new Set(perfilSelecionado?.permissoes ?? []);
+    const map: Record<string, boolean> = {};
+    for (const permissao of permissoes) map[permissao.codigo] = set.has(permissao.codigo);
+    return map;
+  }, [perfilSelecionado, permissoes]);
+
+  /** Ao trocar de função, o editor volta para o padrão dela. */
+  function aplicarPerfil(codigo: string) {
+    setPerfilCodigo(codigo);
+    const perfil = perfisAtribuiveis.find((item) => item.codigo === codigo);
+    const set = new Set(perfil?.permissoes ?? []);
+    const map: Record<string, boolean> = {};
+    for (const permissao of permissoes) map[permissao.codigo] = set.has(permissao.codigo);
+    setPermissoesEfetivas(map);
+    setSelecionadas((atual) => atual.map((item) => ({ ...item, perfilCodigo: codigo })));
+  }
+
+  function resetForm() {
+    setNome("");
+    setEmail("");
+    setUsuarioId("");
+    setPerfilCodigo("");
+    setSelecionadas([]);
+    setPermissoesEfetivas({});
+    setTwoFactorPolicy("required");
+    setAtivo(true);
+  }
+
+  function carregarUsuario(usuario: UsuarioItem) {
+    setMode("editar");
+    setUsuarioId(String(usuario.id));
+    setNome(usuario.nome);
+    setEmail(usuario.email);
+    setTwoFactorPolicy(usuario.twoFactorPolicy);
+    setAtivo(usuario.ativo);
+
+    const principal = usuario.obras.find((item) => item.principal) ?? usuario.obras[0];
+    const codigo = principal?.perfilCodigo ?? "";
+    setPerfilCodigo(codigo);
+    setSelecionadas(
+      usuario.obras.map((item) => ({
+        obraId: item.obraId,
+        perfilCodigo: item.perfilCodigo,
+        principal: item.principal,
+      })),
+    );
+
+    const perfil = perfis.find((item) => item.codigo === codigo);
+    const set = new Set(perfil?.permissoes ?? []);
+    const map: Record<string, boolean> = {};
+    for (const permissao of permissoes) map[permissao.codigo] = set.has(permissao.codigo);
+    for (const override of usuario.overrides) map[override.permissaoCodigo] = override.concedida;
+    setPermissoesEfetivas(map);
+    setShowPermissoes(true);
+    setFeedback(null);
+  }
+
+  function toggleObra(obraId: string) {
+    setSelecionadas((atual) => {
+      const existe = atual.some((item) => item.obraId === obraId);
+      if (existe) {
+        const restante = atual.filter((item) => item.obraId !== obraId);
+        if (restante.length > 0 && !restante.some((item) => item.principal)) {
+          restante[0] = { ...restante[0]!, principal: true };
+        }
+        return restante;
+      }
+      return [
+        ...atual,
+        { obraId, perfilCodigo: perfilCodigo, principal: atual.length === 0 },
+      ];
+    });
+  }
+
+  function definirPrincipal(obraId: string) {
+    setSelecionadas((atual) =>
+      atual.map((item) => ({ ...item, principal: item.obraId === obraId })),
+    );
+  }
+
+  function setPerfilDaObra(obraId: string, codigo: string) {
+    setSelecionadas((atual) =>
+      atual.map((item) => (item.obraId === obraId ? { ...item, perfilCodigo: codigo } : item)),
+    );
+  }
+
+  const overrides = useMemo(
+    () =>
+      permissoes
+        .filter((permissao) => {
+          const atual = permissoesEfetivas[permissao.codigo] === true;
+          return atual !== (padraoDoPerfil[permissao.codigo] === true);
+        })
+        .map((permissao) => ({
+          permissaoCodigo: permissao.codigo,
+          concedida: permissoesEfetivas[permissao.codigo] === true,
+        })),
+    [padraoDoPerfil, permissoes, permissoesEfetivas],
+  );
+
+  async function submit() {
+    setFeedback(null);
+    setSaving(true);
+    try {
+      const obrasPayload = selecionadas.map((item) => ({
+        obraId: item.obraId,
+        perfilCodigo: item.perfilCodigo || perfilCodigo,
+        principal: item.principal,
+      }));
+
+      if (mode === "convite") {
+        await createConvite({
+          data: { nome, email, perfilCodigo, twoFactorPolicy, obras: obrasPayload, overrides },
+        });
+        setFeedback("Pré-cadastro criado. O acesso será liberado no primeiro login.");
+        resetForm();
+      } else {
+        await updateUsuarioAcessos({
+          data: {
+            usuarioId: Number(usuarioId),
+            obras: obrasPayload,
+            overrides,
+            twoFactorPolicy,
+            ativo,
+          },
+        });
+        setFeedback("Acessos do usuário atualizados.");
+      }
+      await Promise.all([reload(), reloadConvites()]);
+    } catch (error) {
+      setFeedback(error instanceof Error ? error.message : String(error));
+    } finally {
+      setSaving(false);
+    }
+  }
+
+  const formValid =
+    selecionadas.length > 0 &&
+    perfilCodigo &&
+    (mode === "convite" ? nome.trim() && email.trim() && twoFactorPolicy : usuarioId);
+
+  const usuarioRows = usuarioList.map((row) => ({
     nome: row.nome,
     email: row.email,
     status: row.ativo ? "Ativo" : "Inativo",
-    obra: row.obraNome ?? "-",
+    obra: row.obras.length > 0 ? row.obras.map((item) => item.obraNome).join(", ") : "-",
     funcao: perfilLabel(perfis, row.perfilCodigo),
     doisFatores: TWO_FACTOR_LABEL[row.twoFactorPolicy] ?? row.twoFactorPolicy,
+    permissoes: row.overrides.length > 0 ? `${row.overrides.length} ajuste(s)` : "Padrão da função",
+    acoes: row,
   }));
 
   const conviteRows = (convites.data ?? [])
@@ -78,50 +236,25 @@ export function UsuariosTab({ perfis }: { perfis: PerfilItem[] }) {
       status: "Pendente",
     }));
 
-  async function submit() {
-    setFeedback(null);
-    setSaving(true);
-    try {
-      if (mode === "convite") {
-        await createConvite({ data: { nome, email, obraId, perfilCodigo, twoFactorPolicy } });
-        setNome("");
-        setEmail("");
-        setFeedback("Pré-cadastro criado. O acesso será liberado no primeiro login.");
-      } else {
-        await assignUsuario({
-          data: { usuarioId: Number(usuarioId), obraId, perfilCodigo, principal: true },
-        });
-        setFeedback("Usuário atribuído à obra.");
-      }
-      await Promise.all([reload(), reloadConvites()]);
-    } catch (error) {
-      setFeedback(error instanceof Error ? error.message : String(error));
-    } finally {
-      setSaving(false);
-    }
-  }
-
-  const formValid =
-    obraId &&
-    perfilCodigo &&
-    (mode === "convite" ? nome.trim() && email.trim() && twoFactorPolicy : usuarioId);
-
   return (
     <div className="page-stack">
       <div className="access-tabs">
         <button
           className={`segmented ${mode === "convite" ? "is-active" : ""}`}
-          onClick={() => setMode("convite")}
+          onClick={() => {
+            setMode("convite");
+            resetForm();
+          }}
           type="button"
         >
           Pré-cadastrar usuário
         </button>
         <button
-          className={`segmented ${mode === "atribuir" ? "is-active" : ""}`}
-          onClick={() => setMode("atribuir")}
+          className={`segmented ${mode === "editar" ? "is-active" : ""}`}
+          onClick={() => setMode("editar")}
           type="button"
         >
-          Atribuir usuário existente
+          Editar usuário existente
         </button>
       </div>
 
@@ -144,9 +277,16 @@ export function UsuariosTab({ perfis }: { perfis: PerfilItem[] }) {
         ) : (
           <label className="field">
             <span>Usuário</span>
-            <select onChange={(event) => setUsuarioId(event.target.value)} value={usuarioId}>
+            <select
+              onChange={(event) => {
+                const found = usuarioList.find((item) => String(item.id) === event.target.value);
+                if (found) carregarUsuario(found);
+                else resetForm();
+              }}
+              value={usuarioId}
+            >
               <option value="">Selecione</option>
-              {(usuarios.data ?? []).map((row) => (
+              {usuarioList.map((row) => (
                 <option key={row.id} value={String(row.id)}>
                   {row.nome} — {row.email}
                 </option>
@@ -156,14 +296,8 @@ export function UsuariosTab({ perfis }: { perfis: PerfilItem[] }) {
         )}
 
         <label className="field">
-          <span>Função</span>
-          <select
-            onChange={(event) => {
-              setPerfilCodigo(event.target.value);
-              setObraId("");
-            }}
-            value={perfilCodigo}
-          >
+          <span>Função base</span>
+          <select onChange={(event) => aplicarPerfil(event.target.value)} value={perfilCodigo}>
             <option value="">Selecione</option>
             {perfisAtribuiveis.map((perfil) => (
               <option key={perfil.codigo} value={perfil.codigo}>
@@ -174,31 +308,141 @@ export function UsuariosTab({ perfis }: { perfis: PerfilItem[] }) {
         </label>
 
         <label className="field">
-          <span>Obra</span>
-          <select onChange={(event) => setObraId(event.target.value)} value={obraId}>
-            <option value="">Selecione</option>
-            {obrasPermitidas.map((obra) => (
-              <option key={obra.id} value={obra.id}>
-                {obra.tipo === "escritorio" ? "ESCRITORIO" : obra.nome}
-              </option>
-            ))}
+          <span>Autenticação em duas etapas</span>
+          <select
+            onChange={(event) => setTwoFactorPolicy(event.target.value)}
+            value={twoFactorPolicy}
+          >
+            <option value="required">Obrigatória</option>
+            <option value="optional">Opcional</option>
+            <option value="disabled">Desativada</option>
           </select>
         </label>
 
-        {mode === "convite" ? (
+        {mode === "editar" ? (
           <label className="field">
-            <span>Autenticação em duas etapas</span>
+            <span>Status</span>
             <select
-              onChange={(event) => setTwoFactorPolicy(event.target.value)}
-              value={twoFactorPolicy}
+              onChange={(event) => setAtivo(event.target.value === "ativo")}
+              value={ativo ? "ativo" : "inativo"}
             >
-              <option value="required">Obrigatória</option>
-              <option value="optional">Opcional</option>
-              <option value="disabled">Desativada</option>
+              <option value="ativo">Ativo</option>
+              <option value="inativo">Inativo</option>
             </select>
           </label>
         ) : null}
+      </div>
 
+      <div className="content-band">
+        <div>
+          <h3>Obras do usuário</h3>
+          <p>
+            Marque quantas obras quiser. A obra principal define o acesso padrão; cada obra pode ter
+            uma função diferente.
+          </p>
+        </div>
+      </div>
+
+      <div className="obra-picker">
+        {obrasPermitidas.length === 0 ? (
+          <p className="hint">Nenhuma obra disponível para esta função.</p>
+        ) : (
+          obrasPermitidas.map((obra) => {
+            const selecao = selecionadas.find((item) => item.obraId === obra.id);
+            const label = obra.tipo === "escritorio" ? "ESCRITORIO" : obra.nome;
+            return (
+              <div className={`obra-option ${selecao ? "is-on" : ""}`} key={obra.id}>
+                <label className="obra-option-main">
+                  <input
+                    checked={Boolean(selecao)}
+                    onChange={() => toggleObra(obra.id)}
+                    type="checkbox"
+                  />
+                  <span>{label}</span>
+                </label>
+
+                {selecao ? (
+                  <div className="obra-option-config">
+                    <select
+                      onChange={(event) => setPerfilDaObra(obra.id, event.target.value)}
+                      value={selecao.perfilCodigo || perfilCodigo}
+                    >
+                      {perfisAtribuiveis
+                        .filter(
+                          (perfil) =>
+                            perfil.codigo !== "supervisor_empresa" || obra.tipo === "escritorio",
+                        )
+                        .map((perfil) => (
+                          <option key={perfil.codigo} value={perfil.codigo}>
+                            {perfil.nome}
+                          </option>
+                        ))}
+                    </select>
+                    <button
+                      className={`button ${selecao.principal ? "primary" : "ghost"}`}
+                      onClick={() => definirPrincipal(obra.id)}
+                      type="button"
+                    >
+                      {selecao.principal ? "Principal" : "Tornar principal"}
+                    </button>
+                  </div>
+                ) : null}
+              </div>
+            );
+          })
+        )}
+      </div>
+
+      <div className="content-band">
+        <ShieldCheck aria-hidden="true" size={16} />
+        <div>
+          <h3>Permissões deste usuário</h3>
+          <p>
+            Começa no padrão da função escolhida. Ajuste aqui apenas o que muda para este usuário —
+            {overrides.length > 0
+              ? ` ${overrides.length} ajuste(s) fora do padrão.`
+              : " nenhum ajuste no momento."}
+          </p>
+        </div>
+        <button
+          className="button ghost"
+          onClick={() => setShowPermissoes((value) => !value)}
+          type="button"
+        >
+          <Pencil aria-hidden="true" size={14} />
+          {showPermissoes ? "Ocultar" : "Editar permissões"}
+        </button>
+      </div>
+
+      {showPermissoes ? (
+        <div className="role-chips permission-editor">
+          {permissoes.map((permissao) => {
+            const on = permissoesEfetivas[permissao.codigo] === true;
+            const custom = on !== (padraoDoPerfil[permissao.codigo] === true);
+            return (
+              <button
+                className={`role-chip ${on ? "is-on" : "is-off"} ${custom ? "is-custom" : ""}`}
+                key={permissao.codigo}
+                onClick={() =>
+                  setPermissoesEfetivas((atual) => ({ ...atual, [permissao.codigo]: !on }))
+                }
+                type="button"
+              >
+                {on ? (
+                  <Check aria-hidden="true" size={12} />
+                ) : (
+                  <X aria-hidden="true" size={12} />
+                )}
+                {permissao.nome}
+                {custom ? <em>ajustado</em> : null}
+              </button>
+            );
+          })}
+          {perfilCodigo ? null : <p className="hint">Escolha a função base primeiro.</p>}
+        </div>
+      ) : null}
+
+      <div className="section-actions">
         <button
           className="button primary"
           disabled={saving || !formValid}
@@ -206,15 +450,8 @@ export function UsuariosTab({ perfis }: { perfis: PerfilItem[] }) {
           type="button"
         >
           <UserPlus aria-hidden="true" size={14} />
-          {mode === "convite" ? "Pré-cadastrar" : "Atribuir"}
+          {mode === "convite" ? "Pré-cadastrar e atribuir" : "Salvar alterações"}
         </button>
-      </div>
-
-      <p className="hint">Nenhuma senha é armazenada pelo LinkAI.</p>
-      {feedback ? <p className="hint">{feedback}</p> : null}
-      {usuarios.error ? <p className="hint">{usuarios.error}</p> : null}
-
-      <div className="section-actions">
         <button
           className="button ghost"
           disabled={usuarios.loading}
@@ -229,23 +466,42 @@ export function UsuariosTab({ perfis }: { perfis: PerfilItem[] }) {
         </button>
       </div>
 
+      <p className="hint">Nenhuma senha é armazenada pelo LinkAI.</p>
+      {feedback ? <p className="hint">{feedback}</p> : null}
+      {usuarios.error ? <p className="hint">{usuarios.error}</p> : null}
+
       <DataTable
         columns={[
           { key: "nome", label: "Nome" },
           { key: "email", label: "E-mail" },
           { key: "status", label: "Status" },
-          { key: "obra", label: "Obra" },
+          { key: "obra", label: "Obras" },
           { key: "funcao", label: "Função" },
           { key: "doisFatores", label: "2FA" },
+          { key: "permissoes", label: "Permissões" },
+          {
+            key: "acoes",
+            label: "",
+            render: (row: Record<string, unknown>) => (
+              <button
+                className="button ghost"
+                onClick={() => carregarUsuario(row["acoes"] as UsuarioItem)}
+                type="button"
+              >
+                <Pencil aria-hidden="true" size={12} />
+                Editar
+              </button>
+            ),
+          },
         ]}
         emptyLabel={usuarios.loading ? "Carregando..." : "Nenhum usuário na sua empresa."}
-        rows={usuarioRows}
+        rows={usuarioRows as unknown as Record<string, unknown>[]}
       />
 
       <div className="content-band">
         <div>
           <h3>Convites pendentes</h3>
-          <p>Vínculo de empresa, obra e função aplicado no primeiro acesso.</p>
+          <p>Vínculo de empresa, obras, função e permissões aplicado no primeiro acesso.</p>
         </div>
       </div>
 
@@ -253,7 +509,7 @@ export function UsuariosTab({ perfis }: { perfis: PerfilItem[] }) {
         columns={[
           { key: "nome", label: "Nome" },
           { key: "email", label: "E-mail" },
-          { key: "obra", label: "Obra" },
+          { key: "obra", label: "Obra principal" },
           { key: "funcao", label: "Função" },
           { key: "doisFatores", label: "2FA" },
           { key: "status", label: "Status" },

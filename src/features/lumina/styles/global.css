@@ -2531,3 +2531,71 @@
 .role-chip.is-off {
   opacity: 0.5;
 }
+
+/* Seleção de múltiplas obras por usuário. */
+.obra-picker {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(min(260px, 100%), 1fr));
+  gap: 10px;
+}
+
+.obra-option {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  padding: 10px 12px;
+  border: 1px solid var(--line-soft);
+  border-radius: var(--radius);
+  background: var(--surface-muted);
+}
+
+.obra-option.is-on {
+  border-color: var(--accent-soft);
+  background: var(--accent-muted);
+}
+
+.obra-option-main {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 0.85rem;
+}
+
+.obra-option-config {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.obra-option-config select {
+  flex: 1;
+  min-width: 0;
+}
+
+.obra-option-config .button {
+  padding: 0 10px;
+  font-size: 0.72rem;
+}
+
+/* Editor de permissões por usuário. */
+.permission-editor .role-chip {
+  cursor: pointer;
+  background: transparent;
+}
+
+.permission-editor .role-chip.is-off {
+  opacity: 0.65;
+}
+
+.permission-editor .role-chip.is-custom {
+  border-color: var(--accent);
+  box-shadow: 0 0 0 1px var(--accent-soft) inset;
+}
+
+.permission-editor .role-chip em {
+  font-style: normal;
+  font-size: 0.62rem;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  opacity: 0.7;
+}

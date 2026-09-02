@@ -53,7 +53,7 @@ export function SettingsPage({ permissoes }: { permissoes: string[] }) {
       {tab === "obras" ? <ObrasTab canManage={canManageWorks} /> : null}
       {tab === "usuarios" ? (
         canManageAccess ? (
-          <UsuariosTab perfis={perfis} />
+          <UsuariosTab perfis={perfis} permissoes={catalog.data?.permissoes ?? []} />
         ) : (
           <p className="hint">Você não tem permissão para administrar usuários.</p>
         )
