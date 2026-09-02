@@ -24,6 +24,14 @@ export type ObraItem = {
 };
 
 
+export type UsuarioObraVinculo = {
+  obraId: string;
+  obraNome: string;
+  obraTipo: string;
+  perfilCodigo: string;
+  principal: boolean;
+};
+
 export type UsuarioItem = {
   id: number;
   nome: string;
@@ -34,6 +42,8 @@ export type UsuarioItem = {
   obraNome: string | null;
   obraId: string | null;
   perfilCodigo: string | null;
+  obras: UsuarioObraVinculo[];
+  overrides: { permissaoCodigo: string; concedida: boolean }[];
 };
 
 export type ConviteItem = {
@@ -46,6 +56,7 @@ export type ConviteItem = {
   status: string;
   criadoEm: string;
 };
+
 
 export type PerfilItem = {
   codigo: string;
