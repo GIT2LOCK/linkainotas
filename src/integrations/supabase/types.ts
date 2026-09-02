@@ -25,7 +25,7 @@ export type Database = {
         Insert: {
           cnpj?: string | null
           criado_em?: string | null
-          id: number
+          id?: number
           nome_fantasia: string
           razao_social?: string | null
         }
@@ -95,6 +95,323 @@ export type Database = {
         }
         Relationships: []
       }
+      linkai_activity_logs: {
+        Row: {
+          action: string
+          actor_user_id: string | null
+          actor_usuario_id: number | null
+          created_at: string
+          empresa_id: number | null
+          finished_at: string | null
+          id: string
+          message: string | null
+          obra_id: string | null
+          payload: Json
+          started_at: string | null
+          status: string
+        }
+        Insert: {
+          action: string
+          actor_user_id?: string | null
+          actor_usuario_id?: number | null
+          created_at?: string
+          empresa_id?: number | null
+          finished_at?: string | null
+          id?: string
+          message?: string | null
+          obra_id?: string | null
+          payload?: Json
+          started_at?: string | null
+          status?: string
+        }
+        Update: {
+          action?: string
+          actor_user_id?: string | null
+          actor_usuario_id?: number | null
+          created_at?: string
+          empresa_id?: number | null
+          finished_at?: string | null
+          id?: string
+          message?: string | null
+          obra_id?: string | null
+          payload?: Json
+          started_at?: string | null
+          status?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "linkai_activity_logs_actor_usuario_id_fkey"
+            columns: ["actor_usuario_id"]
+            isOneToOne: false
+            referencedRelation: "usuarios"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "linkai_activity_logs_empresa_id_fkey"
+            columns: ["empresa_id"]
+            isOneToOne: false
+            referencedRelation: "empresas"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "linkai_activity_logs_obra_id_fkey"
+            columns: ["obra_id"]
+            isOneToOne: false
+            referencedRelation: "linkai_obras"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      linkai_obras: {
+        Row: {
+          ativo: boolean
+          codigo: string
+          created_at: string
+          empresa_id: number
+          id: string
+          nome: string
+          tipo: string
+          updated_at: string
+        }
+        Insert: {
+          ativo?: boolean
+          codigo: string
+          created_at?: string
+          empresa_id: number
+          id?: string
+          nome: string
+          tipo?: string
+          updated_at?: string
+        }
+        Update: {
+          ativo?: boolean
+          codigo?: string
+          created_at?: string
+          empresa_id?: number
+          id?: string
+          nome?: string
+          tipo?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "linkai_obras_empresa_id_fkey"
+            columns: ["empresa_id"]
+            isOneToOne: false
+            referencedRelation: "empresas"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      linkai_perfil_permissoes: {
+        Row: {
+          created_at: string
+          perfil_codigo: string
+          permissao_codigo: string
+        }
+        Insert: {
+          created_at?: string
+          perfil_codigo: string
+          permissao_codigo: string
+        }
+        Update: {
+          created_at?: string
+          perfil_codigo?: string
+          permissao_codigo?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "linkai_perfil_permissoes_perfil_codigo_fkey"
+            columns: ["perfil_codigo"]
+            isOneToOne: false
+            referencedRelation: "linkai_perfis_internos"
+            referencedColumns: ["codigo"]
+          },
+          {
+            foreignKeyName: "linkai_perfil_permissoes_permissao_codigo_fkey"
+            columns: ["permissao_codigo"]
+            isOneToOne: false
+            referencedRelation: "linkai_permissoes"
+            referencedColumns: ["codigo"]
+          },
+        ]
+      }
+      linkai_perfis_internos: {
+        Row: {
+          ativo: boolean
+          codigo: string
+          created_at: string
+          descricao: string | null
+          escopo: string
+          nivel: number
+          nome: string
+          updated_at: string
+        }
+        Insert: {
+          ativo?: boolean
+          codigo: string
+          created_at?: string
+          descricao?: string | null
+          escopo: string
+          nivel?: number
+          nome: string
+          updated_at?: string
+        }
+        Update: {
+          ativo?: boolean
+          codigo?: string
+          created_at?: string
+          descricao?: string | null
+          escopo?: string
+          nivel?: number
+          nome?: string
+          updated_at?: string
+        }
+        Relationships: []
+      }
+      linkai_permissoes: {
+        Row: {
+          codigo: string
+          created_at: string
+          descricao: string | null
+          nome: string
+        }
+        Insert: {
+          codigo: string
+          created_at?: string
+          descricao?: string | null
+          nome: string
+        }
+        Update: {
+          codigo?: string
+          created_at?: string
+          descricao?: string | null
+          nome?: string
+        }
+        Relationships: []
+      }
+      linkai_user_convites: {
+        Row: {
+          criado_em: string
+          criado_por: string | null
+          email: string
+          empresa_id: number
+          id: string
+          nome: string
+          obra_id: string | null
+          perfil_codigo: string
+          status: string
+          two_factor_policy: string
+          updated_at: string
+          vinculado_em: string | null
+        }
+        Insert: {
+          criado_em?: string
+          criado_por?: string | null
+          email: string
+          empresa_id: number
+          id?: string
+          nome: string
+          obra_id?: string | null
+          perfil_codigo: string
+          status?: string
+          two_factor_policy?: string
+          updated_at?: string
+          vinculado_em?: string | null
+        }
+        Update: {
+          criado_em?: string
+          criado_por?: string | null
+          email?: string
+          empresa_id?: number
+          id?: string
+          nome?: string
+          obra_id?: string | null
+          perfil_codigo?: string
+          status?: string
+          two_factor_policy?: string
+          updated_at?: string
+          vinculado_em?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "linkai_user_convites_empresa_id_fkey"
+            columns: ["empresa_id"]
+            isOneToOne: false
+            referencedRelation: "empresas"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "linkai_user_convites_obra_id_fkey"
+            columns: ["obra_id"]
+            isOneToOne: false
+            referencedRelation: "linkai_obras"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "linkai_user_convites_perfil_codigo_fkey"
+            columns: ["perfil_codigo"]
+            isOneToOne: false
+            referencedRelation: "linkai_perfis_internos"
+            referencedColumns: ["codigo"]
+          },
+        ]
+      }
+      linkai_usuario_obras: {
+        Row: {
+          ativo: boolean
+          created_at: string
+          id: string
+          obra_id: string
+          perfil_codigo: string
+          principal: boolean
+          updated_at: string
+          usuario_id: number
+        }
+        Insert: {
+          ativo?: boolean
+          created_at?: string
+          id?: string
+          obra_id: string
+          perfil_codigo: string
+          principal?: boolean
+          updated_at?: string
+          usuario_id: number
+        }
+        Update: {
+          ativo?: boolean
+          created_at?: string
+          id?: string
+          obra_id?: string
+          perfil_codigo?: string
+          principal?: boolean
+          updated_at?: string
+          usuario_id?: number
+        }
+        Relationships: [
+          {
+            foreignKeyName: "linkai_usuario_obras_obra_id_fkey"
+            columns: ["obra_id"]
+            isOneToOne: false
+            referencedRelation: "linkai_obras"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "linkai_usuario_obras_perfil_codigo_fkey"
+            columns: ["perfil_codigo"]
+            isOneToOne: false
+            referencedRelation: "linkai_perfis_internos"
+            referencedColumns: ["codigo"]
+          },
+          {
+            foreignKeyName: "linkai_usuario_obras_usuario_id_fkey"
+            columns: ["usuario_id"]
+            isOneToOne: false
+            referencedRelation: "usuarios"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       lumina_jobs: {
         Row: {
           action: string
@@ -107,6 +424,7 @@ export type Database = {
           item_number: number
           leased_until: string | null
           message: string | null
+          obra_id: string | null
           payload: Json
           queue_request_id: string | null
           requested_by: string
@@ -126,6 +444,7 @@ export type Database = {
           item_number?: number
           leased_until?: string | null
           message?: string | null
+          obra_id?: string | null
           payload?: Json
           queue_request_id?: string | null
           requested_by: string
@@ -145,6 +464,7 @@ export type Database = {
           item_number?: number
           leased_until?: string | null
           message?: string | null
+          obra_id?: string | null
           payload?: Json
           queue_request_id?: string | null
           requested_by?: string
@@ -159,6 +479,13 @@ export type Database = {
             columns: ["empresa_id"]
             isOneToOne: false
             referencedRelation: "empresas"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "lumina_jobs_obra_id_fkey"
+            columns: ["obra_id"]
+            isOneToOne: false
+            referencedRelation: "linkai_obras"
             referencedColumns: ["id"]
           },
           {
@@ -179,6 +506,7 @@ export type Database = {
           id: string
           item_number: number
           message: string | null
+          obra_id: string | null
           payload: Json
           queue_item_id: string
           queue_number: number
@@ -197,6 +525,7 @@ export type Database = {
           id?: string
           item_number: number
           message?: string | null
+          obra_id?: string | null
           payload?: Json
           queue_item_id: string
           queue_number: number
@@ -215,6 +544,7 @@ export type Database = {
           id?: string
           item_number?: number
           message?: string | null
+          obra_id?: string | null
           payload?: Json
           queue_item_id?: string
           queue_number?: number
@@ -226,6 +556,13 @@ export type Database = {
           worker_id?: string | null
         }
         Relationships: [
+          {
+            foreignKeyName: "lumina_queue_logs_obra_id_fkey"
+            columns: ["obra_id"]
+            isOneToOne: false
+            referencedRelation: "linkai_obras"
+            referencedColumns: ["id"]
+          },
           {
             foreignKeyName: "lumina_queue_logs_queue_request_id_fkey"
             columns: ["queue_request_id"]
@@ -246,6 +583,7 @@ export type Database = {
           finished_at: string | null
           id: string
           message: string | null
+          obra_id: string | null
           queue_number: number
           requested_by: string
           started_at: string | null
@@ -263,6 +601,7 @@ export type Database = {
           finished_at?: string | null
           id?: string
           message?: string | null
+          obra_id?: string | null
           queue_number?: number
           requested_by: string
           started_at?: string | null
@@ -280,6 +619,7 @@ export type Database = {
           finished_at?: string | null
           id?: string
           message?: string | null
+          obra_id?: string | null
           queue_number?: number
           requested_by?: string
           started_at?: string | null
@@ -295,6 +635,13 @@ export type Database = {
             referencedRelation: "empresas"
             referencedColumns: ["id"]
           },
+          {
+            foreignKeyName: "lumina_queue_requests_obra_id_fkey"
+            columns: ["obra_id"]
+            isOneToOne: false
+            referencedRelation: "linkai_obras"
+            referencedColumns: ["id"]
+          },
         ]
       }
       notas_processadas: {
@@ -304,10 +651,12 @@ export type Database = {
           cnpj_emitente: string | null
           created_at: string | null
           data_emissao: string | null
+          empresa_id: number | null
           erro_processamento: string | null
           id: string
           medicao_vinculada: string | null
           numero_nf: string | null
+          obra_id: string | null
           payload_lumina: Json | null
           pedido_vinculado: string | null
           serie: string | null
@@ -322,10 +671,12 @@ export type Database = {
           cnpj_emitente?: string | null
           created_at?: string | null
           data_emissao?: string | null
+          empresa_id?: number | null
           erro_processamento?: string | null
           id?: string
           medicao_vinculada?: string | null
           numero_nf?: string | null
+          obra_id?: string | null
           payload_lumina?: Json | null
           pedido_vinculado?: string | null
           serie?: string | null
@@ -340,10 +691,12 @@ export type Database = {
           cnpj_emitente?: string | null
           created_at?: string | null
           data_emissao?: string | null
+          empresa_id?: number | null
           erro_processamento?: string | null
           id?: string
           medicao_vinculada?: string | null
           numero_nf?: string | null
+          obra_id?: string | null
           payload_lumina?: Json | null
           pedido_vinculado?: string | null
           serie?: string | null
@@ -353,6 +706,20 @@ export type Database = {
           valor_total?: number | null
         }
         Relationships: [
+          {
+            foreignKeyName: "notas_processadas_empresa_id_fkey"
+            columns: ["empresa_id"]
+            isOneToOne: false
+            referencedRelation: "empresas"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "notas_processadas_obra_id_fkey"
+            columns: ["obra_id"]
+            isOneToOne: false
+            referencedRelation: "linkai_obras"
+            referencedColumns: ["id"]
+          },
           {
             foreignKeyName: "notas_processadas_pedido_vinculado_fkey"
             columns: ["pedido_vinculado"]
@@ -403,9 +770,11 @@ export type Database = {
           condicao_pagamento: string | null
           conta_debito: string | null
           created_at: string | null
+          empresa_id: number | null
           id: string
           numero_medicao: string | null
           numero_pedido: string | null
+          obra_id: string | null
           qtd_parcelas_padrao: number | null
           status: string | null
           subcategoria: string | null
@@ -420,9 +789,11 @@ export type Database = {
           condicao_pagamento?: string | null
           conta_debito?: string | null
           created_at?: string | null
+          empresa_id?: number | null
           id?: string
           numero_medicao?: string | null
           numero_pedido?: string | null
+          obra_id?: string | null
           qtd_parcelas_padrao?: number | null
           status?: string | null
           subcategoria?: string | null
@@ -437,9 +808,11 @@ export type Database = {
           condicao_pagamento?: string | null
           conta_debito?: string | null
           created_at?: string | null
+          empresa_id?: number | null
           id?: string
           numero_medicao?: string | null
           numero_pedido?: string | null
+          obra_id?: string | null
           qtd_parcelas_padrao?: number | null
           status?: string | null
           subcategoria?: string | null
@@ -447,7 +820,22 @@ export type Database = {
           updated_at?: string | null
           valor_medicao_liquido?: number
         }
-        Relationships: []
+        Relationships: [
+          {
+            foreignKeyName: "pedidos_pendentes_empresa_id_fkey"
+            columns: ["empresa_id"]
+            isOneToOne: false
+            referencedRelation: "empresas"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "pedidos_pendentes_obra_id_fkey"
+            columns: ["obra_id"]
+            isOneToOne: false
+            referencedRelation: "linkai_obras"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       regras_imposto: {
         Row: {
@@ -485,34 +873,54 @@ export type Database = {
       robot_logs: {
         Row: {
           created_at: string | null
+          empresa_id: number | null
           etapa: string | null
           id: string
           mensagem: string | null
           nota_id: string | null
+          obra_id: string | null
           sucesso: boolean | null
         }
         Insert: {
           created_at?: string | null
+          empresa_id?: number | null
           etapa?: string | null
           id?: string
           mensagem?: string | null
           nota_id?: string | null
+          obra_id?: string | null
           sucesso?: boolean | null
         }
         Update: {
           created_at?: string | null
+          empresa_id?: number | null
           etapa?: string | null
           id?: string
           mensagem?: string | null
           nota_id?: string | null
+          obra_id?: string | null
           sucesso?: boolean | null
         }
         Relationships: [
+          {
+            foreignKeyName: "robot_logs_empresa_id_fkey"
+            columns: ["empresa_id"]
+            isOneToOne: false
+            referencedRelation: "empresas"
+            referencedColumns: ["id"]
+          },
           {
             foreignKeyName: "robot_logs_nota_id_fkey"
             columns: ["nota_id"]
             isOneToOne: false
             referencedRelation: "notas_processadas"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "robot_logs_obra_id_fkey"
+            columns: ["obra_id"]
+            isOneToOne: false
+            referencedRelation: "linkai_obras"
             referencedColumns: ["id"]
           },
         ]
@@ -528,8 +936,10 @@ export type Database = {
           email: string
           empresa_id: number | null
           id: number
+          is_platform_superadmin: boolean
           nome: string
           permissao: string | null
+          two_factor_policy: string
         }
         Insert: {
           ariia_user_id?: string | null
@@ -541,8 +951,10 @@ export type Database = {
           email: string
           empresa_id?: number | null
           id?: number
+          is_platform_superadmin?: boolean
           nome: string
           permissao?: string | null
+          two_factor_policy?: string
         }
         Update: {
           ariia_user_id?: string | null
@@ -554,8 +966,10 @@ export type Database = {
           email?: string
           empresa_id?: number | null
           id?: number
+          is_platform_superadmin?: boolean
           nome?: string
           permissao?: string | null
+          two_factor_policy?: string
         }
         Relationships: [
           {
@@ -593,6 +1007,7 @@ export type Database = {
           item_number: number
           leased_until: string | null
           message: string | null
+          obra_id: string | null
           payload: Json
           queue_request_id: string | null
           requested_by: string
@@ -621,6 +1036,7 @@ export type Database = {
           finished_at: string | null
           id: string
           message: string | null
+          obra_id: string | null
           queue_number: number
           requested_by: string
           started_at: string | null
@@ -659,6 +1075,136 @@ export type Database = {
       jwt_empresa_id: { Args: never; Returns: number }
       jwt_has_permissao: { Args: { _permissoes: string[] }; Returns: boolean }
       jwt_permissao: { Args: never; Returns: string }
+      linkai_assign_user_to_obra: {
+        Args: {
+          p_obra_id: string
+          p_perfil_codigo: string
+          p_principal?: boolean
+          p_usuario_id: number
+        }
+        Returns: {
+          ativo: boolean
+          created_at: string
+          id: string
+          obra_id: string
+          perfil_codigo: string
+          principal: boolean
+          updated_at: string
+          usuario_id: number
+        }
+        SetofOptions: {
+          from: "*"
+          to: "linkai_usuario_obras"
+          isOneToOne: true
+          isSetofReturn: false
+        }
+      }
+      linkai_can_access_obra: { Args: { p_obra_id: string }; Returns: boolean }
+      linkai_can_manage_empresa: {
+        Args: { p_empresa_id: number }
+        Returns: boolean
+      }
+      linkai_create_obra: {
+        Args: {
+          p_codigo: string
+          p_empresa_id: number
+          p_nome: string
+          p_tipo?: string
+        }
+        Returns: {
+          ativo: boolean
+          codigo: string
+          created_at: string
+          empresa_id: number
+          id: string
+          nome: string
+          tipo: string
+          updated_at: string
+        }
+        SetofOptions: {
+          from: "*"
+          to: "linkai_obras"
+          isOneToOne: true
+          isSetofReturn: false
+        }
+      }
+      linkai_current_empresa_id: { Args: never; Returns: number }
+      linkai_current_usuario: {
+        Args: never
+        Returns: {
+          ariia_user_id: string | null
+          ativo: boolean | null
+          atualizado_em: string | null
+          auth_user_id: string
+          avatar_url: string | null
+          criado_em: string | null
+          email: string
+          empresa_id: number | null
+          id: number
+          is_platform_superadmin: boolean
+          nome: string
+          permissao: string | null
+          two_factor_policy: string
+        }
+        SetofOptions: {
+          from: "*"
+          to: "usuarios"
+          isOneToOne: true
+          isSetofReturn: false
+        }
+      }
+      linkai_current_usuario_id: { Args: never; Returns: number }
+      linkai_ensure_escritorio: {
+        Args: { p_empresa_id: number }
+        Returns: string
+      }
+      linkai_has_permissao: { Args: { _permissao: string }; Returns: boolean }
+      linkai_is_platform_superadmin: { Args: never; Returns: boolean }
+      linkai_is_supervisor: { Args: never; Returns: boolean }
+      linkai_link_convite: {
+        Args: { p_email: string }
+        Returns: {
+          criado_em: string
+          criado_por: string | null
+          email: string
+          empresa_id: number
+          id: string
+          nome: string
+          obra_id: string | null
+          perfil_codigo: string
+          status: string
+          two_factor_policy: string
+          updated_at: string
+          vinculado_em: string | null
+        }
+        SetofOptions: {
+          from: "*"
+          to: "linkai_user_convites"
+          isOneToOne: true
+          isSetofReturn: false
+        }
+      }
+      linkai_log_activity: {
+        Args: {
+          p_action: string
+          p_finished_at?: string
+          p_message?: string
+          p_obra_id?: string
+          p_payload?: Json
+          p_started_at?: string
+          p_status?: string
+        }
+        Returns: string
+      }
+      linkai_obra_principal: {
+        Args: { p_usuario_id?: number }
+        Returns: string
+      }
+      linkai_obras_visiveis: { Args: never; Returns: string[] }
+      linkai_perfil_principal: {
+        Args: { p_usuario_id?: number }
+        Returns: string
+      }
       lumina_archive_job: {
         Args: { p_job_id: string; p_message: string; p_status: string }
         Returns: boolean
@@ -701,12 +1247,12 @@ export type Tables<
   DefaultSchemaTableNameOrOptions extends
     | keyof (DefaultSchema["Tables"] & DefaultSchema["Views"])
     | { schema: keyof DatabaseWithoutInternals },
-  TableName extends DefaultSchemaTableNameOrOptions extends {
+  TableName extends (DefaultSchemaTableNameOrOptions extends {
     schema: keyof DatabaseWithoutInternals
   }
     ? keyof (DatabaseWithoutInternals[DefaultSchemaTableNameOrOptions["schema"]]["Tables"] &
         DatabaseWithoutInternals[DefaultSchemaTableNameOrOptions["schema"]]["Views"])
-    : never = never,
+    : never) = never,
 > = DefaultSchemaTableNameOrOptions extends {
   schema: keyof DatabaseWithoutInternals
 }
@@ -730,11 +1276,11 @@ export type TablesInsert<
   DefaultSchemaTableNameOrOptions extends
     | keyof DefaultSchema["Tables"]
     | { schema: keyof DatabaseWithoutInternals },
-  TableName extends DefaultSchemaTableNameOrOptions extends {
+  TableName extends (DefaultSchemaTableNameOrOptions extends {
     schema: keyof DatabaseWithoutInternals
   }
     ? keyof DatabaseWithoutInternals[DefaultSchemaTableNameOrOptions["schema"]]["Tables"]
-    : never = never,
+    : never) = never,
 > = DefaultSchemaTableNameOrOptions extends {
   schema: keyof DatabaseWithoutInternals
 }
@@ -755,11 +1301,11 @@ export type TablesUpdate<
   DefaultSchemaTableNameOrOptions extends
     | keyof DefaultSchema["Tables"]
     | { schema: keyof DatabaseWithoutInternals },
-  TableName extends DefaultSchemaTableNameOrOptions extends {
+  TableName extends (DefaultSchemaTableNameOrOptions extends {
     schema: keyof DatabaseWithoutInternals
   }
     ? keyof DatabaseWithoutInternals[DefaultSchemaTableNameOrOptions["schema"]]["Tables"]
-    : never = never,
+    : never) = never,
 > = DefaultSchemaTableNameOrOptions extends {
   schema: keyof DatabaseWithoutInternals
 }
@@ -780,11 +1326,11 @@ export type Enums<
   DefaultSchemaEnumNameOrOptions extends
     | keyof DefaultSchema["Enums"]
     | { schema: keyof DatabaseWithoutInternals },
-  EnumName extends DefaultSchemaEnumNameOrOptions extends {
+  EnumName extends (DefaultSchemaEnumNameOrOptions extends {
     schema: keyof DatabaseWithoutInternals
   }
     ? keyof DatabaseWithoutInternals[DefaultSchemaEnumNameOrOptions["schema"]]["Enums"]
-    : never = never,
+    : never) = never,
 > = DefaultSchemaEnumNameOrOptions extends {
   schema: keyof DatabaseWithoutInternals
 }
@@ -797,11 +1343,11 @@ export type CompositeTypes<
   PublicCompositeTypeNameOrOptions extends
     | keyof DefaultSchema["CompositeTypes"]
     | { schema: keyof DatabaseWithoutInternals },
-  CompositeTypeName extends PublicCompositeTypeNameOrOptions extends {
+  CompositeTypeName extends (PublicCompositeTypeNameOrOptions extends {
     schema: keyof DatabaseWithoutInternals
   }
     ? keyof DatabaseWithoutInternals[PublicCompositeTypeNameOrOptions["schema"]]["CompositeTypes"]
-    : never = never,
+    : never) = never,
 > = PublicCompositeTypeNameOrOptions extends {
   schema: keyof DatabaseWithoutInternals
 }
