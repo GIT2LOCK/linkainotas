@@ -308,7 +308,6 @@ export function UsuariosTab({
               )}
             </div>
           </details>
-          <p className="field-hint">A primeira obra selecionada fica como principal.</p>
         </div>
 
 
