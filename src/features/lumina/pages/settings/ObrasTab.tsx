@@ -66,12 +66,15 @@ export function ObrasTab({ canManage }: { canManage: boolean }) {
         <div>
           <h3>Obras da empresa</h3>
           <p>
-            {hasEscritorio
-              ? "O ESCRITORIO é criado automaticamente e não pode ser duplicado."
-              : "Nenhum ESCRITORIO encontrado no seu escopo."}
+            {escritorios > 1
+              ? `Cada empresa tem o seu próprio ESCRITORIO — você vê ${escritorios} porque tem acesso a mais de uma empresa. Não são duplicados.`
+              : escritorios === 1
+                ? "O ESCRITORIO é criado automaticamente e não pode ser duplicado."
+                : "Nenhum ESCRITORIO encontrado no seu escopo."}
           </p>
         </div>
       </div>
+
 
       {canManage ? (
         <div className="access-form">
