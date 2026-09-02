@@ -2429,3 +2429,27 @@
     animation-iteration-count: 1 !important;
   }
 }
+
+/* Controle interno de acessos: abas e formulários das Configurações. */
+.access-tabs {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px;
+  padding: 4px;
+  border: 1px solid var(--line-soft);
+  border-radius: var(--radius);
+  background: var(--surface-muted);
+  box-shadow: var(--pressed);
+}
+
+.access-tabs .segmented {
+  width: auto;
+  padding: 0 14px;
+}
+
+.access-form {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(min(190px, 100%), 1fr));
+  gap: 10px;
+  align-items: end;
+}

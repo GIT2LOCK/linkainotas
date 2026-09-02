@@ -10,6 +10,7 @@ export type PageKey =
   | "arquivos"
   | "ia"
   | "historico"
+  | "atividades"
   | "configuracoes"
   | "logs";
 
@@ -19,4 +20,6 @@ export interface NavigationItem {
   label: string;
   icon: LucideIcon;
   access?: NavigationAccess;
+  /** Permissão interna do LinkAI exigida para ver o item. */
+  permissao?: string;
 }
