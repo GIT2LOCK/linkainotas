@@ -144,7 +144,9 @@ export const createObra = createServerFn({ method: "POST" })
       tipo: obra.tipo,
       ativo: obra.ativo,
       empresaId: obra.empresa_id,
+      empresaNome: null,
       createdAt: obra.created_at,
+
     };
   });
 
