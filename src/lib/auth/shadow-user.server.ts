@@ -18,10 +18,14 @@ export type LinkaiUser = {
   nome: string;
   email: string;
   permissao: string | null;
+  /** Perfil interno principal do LinkAI (fonte de verdade de acesso). */
+  perfilInterno: string;
+  isPlatformSuperadmin: boolean;
   empresaId: number | null;
   avatarUrl: string | null;
   ativo: boolean;
 };
+
 
 /** Busca um usuário do GoTrue por e-mail via Admin API REST (filtro por e-mail). */
 async function findAuthUserIdByEmail(email: string): Promise<string | null> {
