@@ -276,29 +276,43 @@ export function UsuariosTab({
           </select>
         </label>
 
-        <label className="field">
+        <div className="field">
           <span>Obras</span>
-          <select
-            className="multi-select"
-            disabled={obrasDisponiveis.length === 0}
-            multiple
-            onChange={handleObraChange}
-            value={obraIds}
-          >
-            {obrasDisponiveis.length === 0 ? (
-              <option disabled>Nenhuma obra disponível para esta função</option>
-            ) : (
-              obrasDisponiveis.map((obra) => (
-                <option key={obra.id} value={obra.id}>
-                  {obra.tipo === "escritorio" ? "ESCRITORIO" : obra.nome}
-                </option>
-              ))
-            )}
-          </select>
-          <p className="field-hint">
-            Mantenha Ctrl (Windows) ou Cmd (Mac) pressionado para selecionar várias.
-          </p>
-        </label>
+          <details className="multi-picker">
+            <summary>
+              {obraIds.length === 0
+                ? "Selecione as obras"
+                : obrasDisponiveis
+                    .filter((obra) => obraIds.includes(obra.id))
+                    .map((obra) => (obra.tipo === "escritorio" ? "ESCRITORIO" : obra.nome))
+                    .join(", ")}
+            </summary>
+            <div className="multi-picker-list">
+              {obrasDisponiveis.length === 0 ? (
+                <p className="field-hint">Nenhuma obra disponível para esta função</p>
+              ) : (
+                obrasDisponiveis.map((obra) => (
+                  <label className="multi-picker-option" key={obra.id}>
+                    <input
+                      checked={obraIds.includes(obra.id)}
+                      onChange={(event) =>
+                        setObraIds((atual) =>
+                          event.target.checked
+                            ? [...atual, obra.id]
+                            : atual.filter((id) => id !== obra.id),
+                        )
+                      }
+                      type="checkbox"
+                    />
+                    <span>{obra.tipo === "escritorio" ? "ESCRITORIO" : obra.nome}</span>
+                  </label>
+                ))
+              )}
+            </div>
+          </details>
+          <p className="field-hint">A primeira obra selecionada fica como principal.</p>
+        </div>
+
 
         <label className="field">
           <span>Autenticação em duas etapas</span>
