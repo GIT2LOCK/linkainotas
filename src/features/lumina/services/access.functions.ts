@@ -19,8 +19,10 @@ export type ObraItem = {
   tipo: string;
   ativo: boolean;
   empresaId: number;
+  empresaNome: string | null;
   createdAt: string;
 };
+
 
 export type UsuarioItem = {
   id: number;
