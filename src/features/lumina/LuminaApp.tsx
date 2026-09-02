@@ -10,11 +10,11 @@ import {
   Play,
   ScrollText,
   Settings,
+  Activity,
 } from "lucide-react";
 
 import { AppShell } from "./layouts/AppShell";
 import type { NavigationItem, PageKey } from "./types/navigation";
-import { canAccessNavigation, getAccessRole } from "@/lib/auth/permissions";
 import "./styles/global.css";
 
 const HomePage = lazy(() =>
@@ -45,49 +45,91 @@ const SettingsPage = lazy(() =>
 const LogsPage = lazy(() =>
   import("./pages/LogsPage").then((module) => ({ default: module.LogsPage })),
 );
+const ActivitiesPage = lazy(() =>
+  import("./pages/ActivitiesPage").then((module) => ({ default: module.ActivitiesPage })),
+);
 
 export interface LuminaSessionUser {
   nome: string;
   email: string;
   permissao: string | null;
   avatarUrl: string | null;
+  isPlatformSuperadmin?: boolean;
+  permissoes?: string[];
 }
 
 const navigation: NavigationItem[] = [
-  { group: "Operação", key: "home", label: "Início", icon: House, access: "common" },
+  { group: "Operação", key: "home", label: "Início", icon: House, permissao: "home.view" },
   {
     group: "Operação",
     key: "processar-pdfs",
     label: "Processar PDFs",
     icon: FileArchive,
-    access: "common",
+    permissao: "documents.process",
   },
-  { group: "Operação", key: "lancar-notas", label: "Lançar Notas", icon: Play, access: "common" },
-  { group: "Operação", key: "ia", label: "Inteligência Artificial", icon: Bot, access: "common" },
-  { group: "Dados", key: "planilhas", label: "Planilhas", icon: FileSpreadsheet, access: "common" },
-  { group: "Dados", key: "supabase", label: "Nuvem", icon: Cloud, access: "common" },
-  { group: "Dados", key: "arquivos", label: "Arquivos", icon: Files, access: "common" },
-  { group: "Sistema", key: "historico", label: "Histórico", icon: ScrollText, access: "common" },
-  { group: "Sistema", key: "logs", label: "Logs", icon: LineChart, access: "admin" },
+  {
+    group: "Operação",
+    key: "lancar-notas",
+    label: "Lançar Notas",
+    icon: Play,
+    permissao: "notes.launch",
+  },
+  {
+    group: "Operação",
+    key: "ia",
+    label: "Inteligência Artificial",
+    icon: Bot,
+    permissao: "ai.use",
+  },
+  {
+    group: "Dados",
+    key: "planilhas",
+    label: "Planilhas",
+    icon: FileSpreadsheet,
+    permissao: "spreadsheets.view",
+  },
+  { group: "Dados", key: "supabase", label: "Nuvem", icon: Cloud, permissao: "cloud.view" },
+  { group: "Dados", key: "arquivos", label: "Arquivos", icon: Files, permissao: "files.view" },
+  {
+    group: "Sistema",
+    key: "historico",
+    label: "Histórico",
+    icon: ScrollText,
+    permissao: "history.view",
+  },
+  {
+    group: "Sistema",
+    key: "atividades",
+    label: "Atividades",
+    icon: Activity,
+    permissao: "queue.monitor",
+  },
+  { group: "Sistema", key: "logs", label: "Logs", icon: LineChart, permissao: "logs.view" },
   {
     group: "Sistema",
     key: "configuracoes",
     label: "Configurações",
     icon: Settings,
-    access: "common",
+    permissao: "access.manage",
   },
 ];
 
+const ALL_PERMISSOES = ["access.manage", "works.manage", "records.manage"];
+
 export function LuminaApp({ user }: { user: LuminaSessionUser }) {
   const [selectedPage, setSelectedPage] = useState<PageKey>("home");
-  const accessRole = getAccessRole(user.permissao);
+  const permissoes = user.permissoes ?? [];
+  const isSuperadmin = user.isPlatformSuperadmin === true;
   const availableNavigation = useMemo(
-    () => navigation.filter((item) => canAccessNavigation(item.access, accessRole)),
-    [accessRole],
+    () =>
+      navigation.filter(
+        (item) => isSuperadmin || !item.permissao || permissoes.includes(item.permissao),
+      ),
+    [isSuperadmin, permissoes],
   );
   const activePage = availableNavigation.some((item) => item.key === selectedPage)
     ? selectedPage
-    : "home";
+    : (availableNavigation[0]?.key ?? "home");
 
   const page = useMemo(() => {
     switch (activePage) {
@@ -108,13 +150,15 @@ export function LuminaApp({ user }: { user: LuminaSessionUser }) {
       case "historico":
         return <HistoryPage />;
       case "configuracoes":
-        return <SettingsPage />;
+        return <SettingsPage permissoes={isSuperadmin ? ALL_PERMISSOES : permissoes} />;
+      case "atividades":
+        return <ActivitiesPage />;
       case "logs":
         return <LogsPage />;
       default:
         return <HomePage />;
     }
-  }, [activePage]);
+  }, [activePage, isSuperadmin, permissoes]);
 
   return (
     <AppShell
