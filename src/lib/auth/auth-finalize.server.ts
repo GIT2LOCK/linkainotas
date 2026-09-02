@@ -43,7 +43,7 @@ export async function finalizeAriiaResult(
     email: user.email,
     name: user.nome,
     picture: user.avatarUrl,
-    permissao: user.permissao,
+    permissao: user.perfilInterno,
     ariiaToken: result.session.token,
     tokenExpiresAt: result.session.expiresAt,
     authUserId: user.authUserId,
