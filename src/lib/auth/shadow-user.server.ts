@@ -173,7 +173,22 @@ export async function ensureShadowUser(identity: AriiaIdentity): Promise<LinkaiU
 
   if (upsertError) throw upsertError;
 
-  const user = mapRow(upserted);
+  // Pré-cadastro: vincula empresa, política de 2FA e atribuição de obra/função.
+  const { error: conviteError } = await supabaseAdmin.rpc("linkai_link_convite", {
+    p_email: identity.email,
+  });
+  if (conviteError) {
+    console.error(`[Linkai] linkai_link_convite: ${conviteError.message}`);
+  }
+
+  const { data: atual, error: reloadError } = await supabaseAdmin
+    .from("usuarios")
+    .select(USER_COLUMNS)
+    .eq("id", upserted.id)
+    .single();
+  if (reloadError) throw reloadError;
+
+  const user = mapRow(atual, await resolvePerfilInterno(atual.id));
 
   if (!user.ativo) {
     throw new Error("INACTIVE_USER");
@@ -191,5 +206,8 @@ export async function getLinkaiUserByAuthId(authUserId: string): Promise<LinkaiU
     .maybeSingle();
 
   if (error) throw error;
-  return data ? mapRow(data) : null;
+  if (!data) return null;
+
+  return mapRow(data, await resolvePerfilInterno(data.id));
 }
+
