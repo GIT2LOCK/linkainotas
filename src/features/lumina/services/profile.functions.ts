@@ -106,12 +106,14 @@ export const getMeuPerfil = createServerFn({ method: "GET" })
       empresaNome = empresa?.nome_fantasia ?? null;
     }
 
+    const { resolveAvatarUrl } = await import("@/lib/security/avatar-url.server");
+
     return {
       authUserId: user.auth_user_id,
       usuarioId: user.id,
       nome: user.nome,
       email: user.email,
-      avatarUrl: user.avatar_url,
+      avatarUrl: await resolveAvatarUrl(user.avatar_url),
       empresaNome,
       perfilCodigo,
       perfilNome: profileNames.get(perfilCodigo) ?? perfilCodigo,
@@ -201,16 +203,15 @@ export const updateMyAvatar = createServerFn({ method: "POST" })
       throw new Error("A foto precisa pertencer ao usuário autenticado.");
     }
 
-    const supabaseUrl = process.env["SUPABASE_URL"];
-    if (!supabaseUrl) throw new Error("SUPABASE_URL não configurada.");
-
-    const avatarUrl = `${supabaseUrl.replace(/\/$/, "")}/storage/v1/object/public/linkai-avatars/${data.path}`;
     const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
     const { error } = await supabaseAdmin
       .from("usuarios")
-      .update({ avatar_url: avatarUrl, avatar_customized: true })
+      .update({ avatar_url: data.path, avatar_customized: true })
       .eq("id", context.user.id);
     if (error) throw error;
+
+    const { resolveAvatarUrl } = await import("@/lib/security/avatar-url.server");
+    const avatarUrl = await resolveAvatarUrl(data.path);
 
     await context.supabase.rpc("linkai_log_activity", {
       p_action: "profile.avatar.updated",

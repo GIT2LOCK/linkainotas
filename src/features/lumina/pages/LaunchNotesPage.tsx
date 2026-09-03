@@ -49,7 +49,7 @@ export function LaunchNotesPage() {
   useEffect(() => {
     let cancelled = false;
 
-    getMeuPerfil({ data: {} })
+    getMeuPerfil()
       .then((currentProfile) => {
         if (!cancelled) {
           setProfile(currentProfile);
