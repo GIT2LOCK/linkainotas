@@ -16,7 +16,8 @@ export type PageKey =
   | "logs";
 
 export interface NavigationItem {
-  group: "Operação" | "Dados" | "Sistema";
+  group:
+    "Visão geral" | "Operação" | "Recursos" | "Dados" | "Monitoramento" | "Administração" | "Conta";
   key: PageKey;
   label: string;
   icon: LucideIcon;

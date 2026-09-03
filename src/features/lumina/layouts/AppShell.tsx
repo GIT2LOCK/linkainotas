@@ -18,7 +18,15 @@ interface AppShellProps {
 type LuminaTheme = "dark" | "light";
 
 const themeStorageKey = "linkai-lumina-theme";
-const navigationGroupOrder = ["Operação", "Dados", "Sistema"] as const;
+const navigationGroupOrder = [
+  "Visão geral",
+  "Operação",
+  "Recursos",
+  "Dados",
+  "Monitoramento",
+  "Administração",
+  "Conta",
+] as const;
 
 export function AppShell({ activePage, children, navigation, onNavigate, user }: AppShellProps) {
   const [theme, setTheme] = useState<LuminaTheme>("dark");

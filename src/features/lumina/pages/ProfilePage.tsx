@@ -168,7 +168,7 @@ export function ProfilePage({ initialUser, onProfileUpdated }: ProfilePageProps)
           </div>
         </section>
 
-        <section className="content-band profile-card">
+        <section className="content-band profile-card profile-details-card">
           <div className="profile-card-heading">
             <UserRound aria-hidden="true" size={18} />
             <div>
@@ -225,7 +225,7 @@ export function ProfilePage({ initialUser, onProfileUpdated }: ProfilePageProps)
           </div>
         </section>
 
-        <section className="content-band profile-card">
+        <section className="content-band profile-card profile-work-card">
           <div className="profile-card-heading">
             <BriefcaseBusiness aria-hidden="true" size={18} />
             <div>

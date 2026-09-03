@@ -63,7 +63,7 @@ export interface LuminaSessionUser {
 }
 
 const navigation: NavigationItem[] = [
-  { group: "Operação", key: "home", label: "Início", icon: House, permissao: "home.view" },
+  { group: "Visão geral", key: "home", label: "Início", icon: House, permissao: "home.view" },
   {
     group: "Operação",
     key: "processar-pdfs",
@@ -79,7 +79,7 @@ const navigation: NavigationItem[] = [
     permissao: "notes.launch",
   },
   {
-    group: "Operação",
+    group: "Recursos",
     key: "ia",
     label: "Inteligência Artificial",
     icon: Bot,
@@ -92,31 +92,31 @@ const navigation: NavigationItem[] = [
     icon: FileSpreadsheet,
     permissao: "spreadsheets.view",
   },
-  { group: "Dados", key: "supabase", label: "Nuvem", icon: Cloud, permissao: "cloud.view" },
   { group: "Dados", key: "arquivos", label: "Arquivos", icon: Files, permissao: "files.view" },
+  { group: "Dados", key: "supabase", label: "Nuvem", icon: Cloud, permissao: "cloud.view" },
   {
-    group: "Sistema",
+    group: "Monitoramento",
     key: "historico",
     label: "Histórico",
     icon: ScrollText,
     permissao: "history.view",
   },
   {
-    group: "Sistema",
+    group: "Monitoramento",
     key: "atividades",
     label: "Atividades",
     icon: Activity,
     permissao: "queue.monitor",
   },
-  { group: "Sistema", key: "meu-perfil", label: "Meu Perfil", icon: UserRound },
-  { group: "Sistema", key: "logs", label: "Logs", icon: LineChart, permissao: "logs.view" },
+  { group: "Monitoramento", key: "logs", label: "Logs", icon: LineChart, permissao: "logs.view" },
   {
-    group: "Sistema",
+    group: "Administração",
     key: "configuracoes",
     label: "Configurações",
     icon: Settings,
     permissao: "access.manage",
   },
+  { group: "Conta", key: "meu-perfil", label: "Meu Perfil", icon: UserRound },
 ];
 
 const ALL_PERMISSOES = ["access.manage", "works.manage", "records.manage"];
