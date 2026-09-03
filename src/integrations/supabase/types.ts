@@ -1052,12 +1052,17 @@ export type Database = {
           ativo: boolean | null
           atualizado_em: string | null
           auth_user_id: string
+          avatar_customized: boolean
           avatar_url: string | null
           criado_em: string | null
           email: string
           empresa_id: number | null
           id: number
           is_platform_superadmin: boolean
+          lumina_credentials_updated_at: string | null
+          lumina_password_ciphertext: string | null
+          lumina_password_set: boolean
+          lumina_username: string | null
           nome: string
           permissao: string | null
           two_factor_policy: string
@@ -1067,12 +1072,17 @@ export type Database = {
           ativo?: boolean | null
           atualizado_em?: string | null
           auth_user_id: string
+          avatar_customized?: boolean
           avatar_url?: string | null
           criado_em?: string | null
           email: string
           empresa_id?: number | null
           id?: number
           is_platform_superadmin?: boolean
+          lumina_credentials_updated_at?: string | null
+          lumina_password_ciphertext?: string | null
+          lumina_password_set?: boolean
+          lumina_username?: string | null
           nome: string
           permissao?: string | null
           two_factor_policy?: string
@@ -1082,12 +1092,17 @@ export type Database = {
           ativo?: boolean | null
           atualizado_em?: string | null
           auth_user_id?: string
+          avatar_customized?: boolean
           avatar_url?: string | null
           criado_em?: string | null
           email?: string
           empresa_id?: number | null
           id?: number
           is_platform_superadmin?: boolean
+          lumina_credentials_updated_at?: string | null
+          lumina_password_ciphertext?: string | null
+          lumina_password_set?: boolean
+          lumina_username?: string | null
           nome?: string
           permissao?: string | null
           two_factor_policy?: string
@@ -1287,12 +1302,17 @@ export type Database = {
           ativo: boolean | null
           atualizado_em: string | null
           auth_user_id: string
+          avatar_customized: boolean
           avatar_url: string | null
           criado_em: string | null
           email: string
           empresa_id: number | null
           id: number
           is_platform_superadmin: boolean
+          lumina_credentials_updated_at: string | null
+          lumina_password_ciphertext: string | null
+          lumina_password_set: boolean
+          lumina_username: string | null
           nome: string
           permissao: string | null
           two_factor_policy: string
