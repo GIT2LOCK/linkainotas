@@ -1,15 +1,31 @@
 import { useEffect, useMemo, useState } from "react";
-import { Check, Pencil, RefreshCw, ShieldCheck, UserPlus, X } from "lucide-react";
+import {
+  BookmarkPlus,
+  Check,
+  Copy,
+  History,
+  Pencil,
+  RefreshCw,
+  ShieldCheck,
+  UserPlus,
+  X,
+} from "lucide-react";
 
 import { DataTable } from "../../components/DataTable";
 import { useAsyncAction } from "../../hooks/useAsyncAction";
 import {
   createConvite,
+  createAccessModel,
+  applyAccessModelToUser,
+  listAccessHistory,
+  listAccessModels,
   listConvites,
   listObras,
   listUsuarios,
   updateUsuarioAcessos,
   type ConviteItem,
+  type AccessHistoryItem,
+  type AccessModelItem,
   type ObraItem,
   type PerfilItem,
   type PermissaoItem,
@@ -32,6 +48,8 @@ export function UsuariosTab({
   const usuarios = useAsyncAction(() => listUsuarios());
   const convites = useAsyncAction(() => listConvites());
   const obras = useAsyncAction(() => listObras());
+  const modelos = useAsyncAction(() => listAccessModels());
+  const historico = useAsyncAction(() => listAccessHistory());
 
   const [mode, setMode] = useState<"convite" | "editar">("convite");
   const [nome, setNome] = useState("");
@@ -45,19 +63,30 @@ export function UsuariosTab({
   const [showPermissoes, setShowPermissoes] = useState(false);
   const [feedback, setFeedback] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
+  const [modelName, setModelName] = useState("");
+  const [modelDescription, setModelDescription] = useState("");
+  const [showModelForm, setShowModelForm] = useState(false);
+  const [modelSaving, setModelSaving] = useState(false);
+  const [applyingModelId, setApplyingModelId] = useState<string | null>(null);
 
   const reload = usuarios.run;
   const reloadConvites = convites.run;
   const reloadObras = obras.run;
+  const reloadModels = modelos.run;
+  const reloadHistory = historico.run;
 
   useEffect(() => {
     void reload().catch(() => undefined);
     void reloadConvites().catch(() => undefined);
     void reloadObras().catch(() => undefined);
-  }, [reload, reloadConvites, reloadObras]);
+    void reloadModels().catch(() => undefined);
+    void reloadHistory().catch(() => undefined);
+  }, [reload, reloadConvites, reloadObras, reloadModels, reloadHistory]);
 
   const obraList: ObraItem[] = obras.data ?? [];
   const usuarioList: UsuarioItem[] = usuarios.data ?? [];
+  const modelList: AccessModelItem[] = modelos.data ?? [];
+  const historyList: AccessHistoryItem[] = historico.data ?? [];
 
   const perfisAtribuiveis = useMemo(
     () => perfis.filter((perfil) => perfil.codigo !== "superadmin_2lock"),
@@ -65,6 +94,11 @@ export function UsuariosTab({
   );
 
   const perfilSelecionado = perfisAtribuiveis.find((perfil) => perfil.codigo === perfilCodigo);
+
+  const modelEmpresaId = useMemo(() => {
+    const selected = obraList.filter((obra) => obraIds.includes(obra.id));
+    return selected[0]?.empresaId ?? null;
+  }, [obraIds, obraList]);
 
   const obrasDisponiveis = useMemo(() => {
     if (perfilSelecionado?.codigo === "supervisor_empresa") {
@@ -123,6 +157,22 @@ export function UsuariosTab({
     setFeedback(null);
   }
 
+  function aplicarModeloNoFormulario(model: AccessModelItem) {
+    const principal = model.obras.find((obra) => obra.principal) ?? model.obras[0];
+    const codigo = principal?.perfilCodigo ?? model.perfilCodigo;
+    setPerfilCodigo(codigo);
+    setObraIds(model.obras.map((obra) => obra.obraId));
+    setTwoFactorPolicy(model.twoFactorPolicy);
+
+    const perfil = perfisAtribuiveis.find((item) => item.codigo === codigo);
+    const defaults = new Set(perfil?.permissoes ?? []);
+    const map: Record<string, boolean> = {};
+    for (const permissao of permissoes) map[permissao.codigo] = defaults.has(permissao.codigo);
+    for (const override of model.overrides) map[override.permissaoCodigo] = override.concedida;
+    setPermissoesEfetivas(map);
+    setShowPermissoes(true);
+  }
+
 
 
 
@@ -168,11 +218,70 @@ export function UsuariosTab({
         });
         setFeedback("Acessos do usuário atualizados.");
       }
-      await Promise.all([reload(), reloadConvites()]);
+      await Promise.all([reload(), reloadConvites(), reloadHistory()]);
     } catch (error) {
       setFeedback(error instanceof Error ? error.message : String(error));
     } finally {
       setSaving(false);
+    }
+  }
+
+  async function salvarModelo() {
+    setFeedback(null);
+    if (!modelEmpresaId) {
+      setFeedback("Selecione ao menos uma obra para identificar a empresa do modelo.");
+      return;
+    }
+
+    setModelSaving(true);
+    try {
+      await createAccessModel({
+        data: {
+          empresaId: modelEmpresaId,
+          nome: modelName,
+          descricao: modelDescription,
+          perfilCodigo,
+          twoFactorPolicy,
+          obras: obraIds.map((obraId, index) => ({
+            obraId,
+            perfilCodigo,
+            principal: index === 0,
+          })),
+          overrides,
+        },
+      });
+      setModelName("");
+      setModelDescription("");
+      setShowModelForm(false);
+      setFeedback("Modelo salvo. Ele já pode ser reaplicado em um clique.");
+      await Promise.all([reloadModels(), reloadHistory()]);
+    } catch (error) {
+      setFeedback(error instanceof Error ? error.message : String(error));
+    } finally {
+      setModelSaving(false);
+    }
+  }
+
+  async function aplicarModelo(model: AccessModelItem) {
+    if (mode === "convite" || !usuarioId) {
+      aplicarModeloNoFormulario(model);
+      setFeedback(`Modelo “${model.nome}” carregado no formulário.`);
+      return;
+    }
+
+    setFeedback(null);
+    setApplyingModelId(model.id);
+    try {
+      await applyAccessModelToUser({ data: { modelId: model.id, usuarioId: Number(usuarioId) } });
+      const refreshed = await reload();
+      const updated = refreshed.find((item) => item.id === Number(usuarioId));
+      if (updated) carregarUsuario(updated);
+      setFeedback(`Modelo “${model.nome}” aplicado ao usuário.`);
+      await reloadHistory();
+    } catch (error) {
+      setFeedback(error instanceof Error ? error.message : String(error));
+    } finally {
+      setApplyingModelId(null);
     }
   }
 
@@ -409,6 +518,136 @@ export function UsuariosTab({
           Atualizar
         </button>
       </div>
+
+      <section className="access-models-panel">
+        <div className="content-band access-models-header">
+          <BookmarkPlus aria-hidden="true" size={16} />
+          <div>
+            <h3>Modelos de atribuição</h3>
+            <p>
+              Salve uma combinação de função, obras, 2FA e permissões para reaplicar sem repetir o
+              preenchimento.
+            </p>
+          </div>
+          <button
+            className="button ghost"
+            disabled={!formValid || modelSaving}
+            onClick={() => setShowModelForm((value) => !value)}
+            type="button"
+          >
+            <BookmarkPlus aria-hidden="true" size={14} />
+            {showModelForm ? "Fechar" : "Salvar configuração atual"}
+          </button>
+        </div>
+
+        {showModelForm ? (
+          <div className="access-form access-model-form">
+            <label className="field">
+              <span>Nome do modelo</span>
+              <input
+                onChange={(event) => setModelName(event.target.value)}
+                placeholder="Fiscal da obra"
+                value={modelName}
+              />
+            </label>
+            <label className="field">
+              <span>Descrição (opcional)</span>
+              <input
+                onChange={(event) => setModelDescription(event.target.value)}
+                placeholder="Acesso padrão para fiscais"
+                value={modelDescription}
+              />
+            </label>
+            <button
+              className="button primary"
+              disabled={modelSaving || !modelName.trim() || !formValid}
+              onClick={() => void salvarModelo()}
+              type="button"
+            >
+              <BookmarkPlus aria-hidden="true" size={14} />
+              {modelSaving ? "Salvando..." : "Salvar modelo"}
+            </button>
+          </div>
+        ) : null}
+
+        {modelos.error ? <p className="hint">{modelos.error}</p> : null}
+        {modelList.length > 0 ? (
+          <div className="access-model-list">
+            {modelList.map((model) => (
+              <article className="access-model-row" key={model.id}>
+                <div className="access-model-copy">
+                  <strong>{model.nome}</strong>
+                  <span>
+                    {perfilLabel(perfis, model.perfilCodigo)} · {model.obras.length} obra(s) ·{" "}
+                    {model.overrides.length} ajuste(s) · 2FA {TWO_FACTOR_LABEL[model.twoFactorPolicy] ?? model.twoFactorPolicy}
+                  </span>
+                  {model.descricao ? <small>{model.descricao}</small> : null}
+                </div>
+                <button
+                  className="button ghost"
+                  disabled={applyingModelId !== null}
+                  onClick={() => void aplicarModelo(model)}
+                  type="button"
+                >
+                  <Copy aria-hidden="true" size={13} />
+                  {applyingModelId === model.id
+                    ? "Aplicando..."
+                    : mode === "editar" && usuarioId
+                      ? "Aplicar ao usuário"
+                      : "Usar no formulário"}
+                </button>
+              </article>
+            ))}
+          </div>
+        ) : (
+          <p className="hint">Nenhum modelo salvo ainda.</p>
+        )}
+      </section>
+
+      <section className="access-history-panel">
+        <div className="content-band access-models-header">
+          <History aria-hidden="true" size={16} />
+          <div>
+            <h3>Histórico de alterações</h3>
+            <p>Registro das configurações criadas, atualizadas e reaplicadas nesta empresa.</p>
+          </div>
+          <button
+            className="button ghost"
+            disabled={historico.loading}
+            onClick={() => void reloadHistory().catch(() => undefined)}
+            type="button"
+          >
+            <RefreshCw aria-hidden="true" size={14} />
+            Atualizar histórico
+          </button>
+        </div>
+        <DataTable
+          columns={[
+            { key: "acao", label: "Ação" },
+            { key: "actor", label: "Operador" },
+            { key: "target", label: "Alvo" },
+            { key: "model", label: "Modelo" },
+            { key: "resumo", label: "Resumo" },
+            {
+              key: "createdAt",
+              label: "Data",
+              render: (row: Record<string, unknown>) =>
+                new Date(String(row["createdAt"])).toLocaleString("pt-BR"),
+            },
+          ]}
+          emptyLabel={historico.loading ? "Carregando histórico..." : "Nenhuma alteração registrada."}
+          rows={historyList.map((row) => ({
+            acao: row.acao,
+            actor: row.actorName ?? "Usuário atual",
+            target: row.targetName
+              ? `${row.targetName}${row.targetEmail ? ` · ${row.targetEmail}` : ""}`
+              : "Configuração da empresa",
+            model: row.modelName ?? "Configuração manual",
+            resumo: row.resumo,
+            createdAt: row.createdAt,
+          }))}
+        />
+      </section>
 
       <p className="hint">Nenhuma senha é armazenada pelo LinkAI.</p>
       {feedback ? <p className="hint">{feedback}</p> : null}

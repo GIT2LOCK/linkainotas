@@ -10,6 +10,7 @@ tabelas `linkai_*` no Supabase do LinkAI.
 | --- | --- |
 | `20260902162502_*.sql` | Modelo completo: tabelas `linkai_*`, colunas em `usuarios`, escopo de obra nas tabelas operacionais, funções, RLS, matriz de permissões e backfill dos dados existentes. |
 | `20260902162557_*.sql` | Endurecimento: `anon` perde `EXECUTE` em todas as funções internas; `authenticated` mantém apenas as funções necessárias. |
+| `20260902213000_create_access_assignment_models.sql` | Modelos reutilizáveis de atribuição e histórico imutável de alterações. |
 
 Não existe `20260902120000_create_linkai_internal_access.sql` no repositório —
 o modelo foi criado nas migrations acima. Correções futuras devem ser
@@ -25,6 +26,10 @@ empresas
 linkai_perfis_internos ── linkai_perfil_permissoes ── linkai_permissoes
 linkai_user_convites   (pré-cadastro por e-mail)
 linkai_activity_logs   (auditoria, somente metadados)
+
+linkai_acesso_modelos ── linkai_acesso_modelo_obras
+                      └── linkai_acesso_modelo_permissoes
+linkai_acesso_historico (snapshot das atribuições)
 ```
 
 - Toda empresa recebe automaticamente a obra `ESCRITORIO` (`tipo = 'escritorio'`),
@@ -62,6 +67,30 @@ Permissões: `home.view`, `documents.process`, `notes.launch`, `ai.use`,
 | `linkai_ensure_escritorio`, `linkai_empresa_escritorio_trigger`, `linkai_current_usuario` | service_role | Uso interno. |
 
 `anon` não executa nenhuma delas.
+
+## Modelos e histórico de atribuições
+
+Um modelo é uma configuração nomeada e reutilizável da empresa. Ele guarda a
+função, as obras, a política de 2FA e os overrides de permissões. Não guarda
+senha, token ou conteúdo de documentos.
+
+Na aba **Configurações > Usuários**:
+
+1. Preencha ou edite a atribuição normalmente.
+2. Clique em **Salvar configuração atual**, dê um nome ao modelo e salve.
+3. Em uma próxima atribuição, clique em **Usar no formulário** para carregar a
+   configuração, ou selecione um usuário existente e clique em **Aplicar ao
+   usuário** para executar a alteração diretamente.
+
+Cada criação de modelo, convite, edição manual e aplicação de modelo grava um
+snapshot em `linkai_acesso_historico`, com ação, operador, alvo, data e resumo.
+O histórico é somente leitura e segue o mesmo escopo de empresa de
+`access.manage`.
+
+As operações diretas usam `linkai_create_access_model` e
+`linkai_apply_access_model`; a aplicação de um modelo reaproveita a RPC
+`linkai_set_usuario_acessos`, mantendo as validações e a atomicidade já
+existentes.
 
 ## Claims do token
 

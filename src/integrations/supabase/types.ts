@@ -162,6 +162,203 @@ export type Database = {
           },
         ]
       }
+      linkai_acesso_modelos: {
+        Row: {
+          ativo: boolean
+          created_at: string
+          criado_por: string | null
+          descricao: string
+          empresa_id: number
+          id: string
+          nome: string
+          perfil_codigo: string
+          two_factor_policy: string
+          updated_at: string
+        }
+        Insert: {
+          ativo?: boolean
+          created_at?: string
+          criado_por?: string | null
+          descricao?: string
+          empresa_id: number
+          id?: string
+          nome: string
+          perfil_codigo: string
+          two_factor_policy?: string
+          updated_at?: string
+        }
+        Update: {
+          ativo?: boolean
+          created_at?: string
+          criado_por?: string | null
+          descricao?: string
+          empresa_id?: number
+          id?: string
+          nome?: string
+          perfil_codigo?: string
+          two_factor_policy?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "linkai_acesso_modelos_empresa_id_fkey"
+            columns: ["empresa_id"]
+            isOneToOne: false
+            referencedRelation: "empresas"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "linkai_acesso_modelos_perfil_codigo_fkey"
+            columns: ["perfil_codigo"]
+            isOneToOne: false
+            referencedRelation: "linkai_perfis_internos"
+            referencedColumns: ["codigo"]
+          },
+        ]
+      }
+      linkai_acesso_modelo_obras: {
+        Row: {
+          created_at: string
+          modelo_id: string
+          obra_id: string
+          perfil_codigo: string
+          principal: boolean
+        }
+        Insert: {
+          created_at?: string
+          modelo_id: string
+          obra_id: string
+          perfil_codigo: string
+          principal?: boolean
+        }
+        Update: {
+          created_at?: string
+          modelo_id?: string
+          obra_id?: string
+          perfil_codigo?: string
+          principal?: boolean
+        }
+        Relationships: [
+          {
+            foreignKeyName: "linkai_acesso_modelo_obras_modelo_id_fkey"
+            columns: ["modelo_id"]
+            isOneToOne: false
+            referencedRelation: "linkai_acesso_modelos"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "linkai_acesso_modelo_obras_obra_id_fkey"
+            columns: ["obra_id"]
+            isOneToOne: false
+            referencedRelation: "linkai_obras"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "linkai_acesso_modelo_obras_perfil_codigo_fkey"
+            columns: ["perfil_codigo"]
+            isOneToOne: false
+            referencedRelation: "linkai_perfis_internos"
+            referencedColumns: ["codigo"]
+          },
+        ]
+      }
+      linkai_acesso_modelo_permissoes: {
+        Row: {
+          concedida: boolean
+          created_at: string
+          modelo_id: string
+          permissao_codigo: string
+        }
+        Insert: {
+          concedida?: boolean
+          created_at?: string
+          modelo_id: string
+          permissao_codigo: string
+        }
+        Update: {
+          concedida?: boolean
+          created_at?: string
+          modelo_id?: string
+          permissao_codigo?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "linkai_acesso_modelo_permissoes_modelo_id_fkey"
+            columns: ["modelo_id"]
+            isOneToOne: false
+            referencedRelation: "linkai_acesso_modelos"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "linkai_acesso_modelo_permissoes_permissao_codigo_fkey"
+            columns: ["permissao_codigo"]
+            isOneToOne: false
+            referencedRelation: "linkai_permissoes"
+            referencedColumns: ["codigo"]
+          },
+        ]
+      }
+      linkai_acesso_historico: {
+        Row: {
+          acao: string
+          actor_user_id: string | null
+          actor_usuario_id: number | null
+          convite_id: string | null
+          created_at: string
+          empresa_id: number
+          id: string
+          modelo_id: string | null
+          snapshot: Json
+          usuario_id: number | null
+        }
+        Insert: {
+          acao: string
+          actor_user_id?: string | null
+          actor_usuario_id?: number | null
+          convite_id?: string | null
+          created_at?: string
+          empresa_id: number
+          id?: string
+          modelo_id?: string | null
+          snapshot?: Json
+          usuario_id?: number | null
+        }
+        Update: {
+          acao?: string
+          actor_user_id?: string | null
+          actor_usuario_id?: number | null
+          convite_id?: string | null
+          created_at?: string
+          empresa_id?: number
+          id?: string
+          modelo_id?: string | null
+          snapshot?: Json
+          usuario_id?: number | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "linkai_acesso_historico_empresa_id_fkey"
+            columns: ["empresa_id"]
+            isOneToOne: false
+            referencedRelation: "empresas"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "linkai_acesso_historico_usuario_id_fkey"
+            columns: ["usuario_id"]
+            isOneToOne: false
+            referencedRelation: "usuarios"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "linkai_acesso_historico_modelo_id_fkey"
+            columns: ["modelo_id"]
+            isOneToOne: false
+            referencedRelation: "linkai_acesso_modelos"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       linkai_convite_obras: {
         Row: {
           convite_id: string
@@ -1145,6 +1342,39 @@ export type Database = {
         }
       }
       custom_access_token_hook: { Args: { event: Json }; Returns: Json }
+      linkai_apply_access_model: {
+        Args: { p_modelo_id: string; p_usuario_id: number }
+        Returns: undefined
+      }
+      linkai_create_access_model: {
+        Args: {
+          p_descricao: string
+          p_empresa_id: number
+          p_nome: string
+          p_obras?: Json
+          p_perfil_codigo: string
+          p_permissoes?: Json
+          p_two_factor_policy: string
+        }
+        Returns: {
+          ativo: boolean
+          created_at: string
+          criado_por: string | null
+          descricao: string
+          empresa_id: number
+          id: string
+          nome: string
+          perfil_codigo: string
+          two_factor_policy: string
+          updated_at: string
+        }
+        SetofOptions: {
+          from: "*"
+          to: "linkai_acesso_modelos"
+          isOneToOne: true
+          isSetofReturn: false
+        }
+      }
       enqueue_lumina_request: {
         Args: { p_action?: string; p_items?: Json; p_payload?: Json }
         Returns: {
@@ -1312,6 +1542,17 @@ export type Database = {
       linkai_has_permissao: { Args: { _permissao: string }; Returns: boolean }
       linkai_is_platform_superadmin: { Args: never; Returns: boolean }
       linkai_is_supervisor: { Args: never; Returns: boolean }
+      linkai_record_access_history: {
+        Args: {
+          p_acao: string
+          p_convite_id?: string
+          p_empresa_id: number
+          p_modelo_id?: string
+          p_snapshot?: Json
+          p_usuario_id?: number
+        }
+        Returns: string
+      }
       linkai_link_convite: {
         Args: { p_email: string }
         Returns: {
