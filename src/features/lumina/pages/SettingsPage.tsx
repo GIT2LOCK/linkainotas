@@ -13,7 +13,7 @@ const TABS: { key: TabKey; label: string }[] = [
   { key: "obras", label: "Obras" },
   { key: "usuarios", label: "Usuários" },
   { key: "funcoes", label: "Funções e permissões" },
-  { key: "geral", label: "Geral" },
+  { key: "geral", label: "Preferências" },
 ];
 
 export function SettingsPage({ permissoes }: { permissoes: string[] }) {
@@ -32,9 +32,9 @@ export function SettingsPage({ permissoes }: { permissoes: string[] }) {
   return (
     <div className="page-stack">
       <SectionHeader
-        eyebrow="Sistema"
-        title="Configurações"
-        description="Obras, usuários, funções e permissões do controle interno de acessos."
+        eyebrow="Administração"
+        title="Controle de acesso"
+        description="Administre empresas, obras, usuários, funções e permissões do ambiente LinkAI."
       />
 
       <div className="access-tabs">
@@ -64,12 +64,12 @@ export function SettingsPage({ permissoes }: { permissoes: string[] }) {
       {tab === "geral" ? (
         <div className="settings-grid">
           <div className="content-band">
-            <h3>Credenciais</h3>
-            <p>Valores sensíveis permanecem protegidos no ambiente local.</p>
+            <h3>Segurança e credenciais</h3>
+            <p>Valores sensíveis permanecem protegidos nos ambientes autorizados.</p>
           </div>
           <div className="content-band">
-            <h3>Interface</h3>
-            <p>Tema escuro e idioma português brasileiro.</p>
+            <h3>Preferências da interface</h3>
+            <p>O ambiente utiliza tema adaptável e idioma português brasileiro.</p>
           </div>
         </div>
       ) : null}

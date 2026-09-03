@@ -183,13 +183,13 @@ export function LaunchNotesPage() {
     <div className="page-stack">
       <SectionHeader
         eyebrow="Operação"
-        title="Lançar Notas"
-        description="Inicie o fluxo de lançamento no Lumina sob demanda."
+        title="Lançamento de notas"
+        description="Envie uma solicitação para a fila e acompanhe o processamento das notas fiscais no Lumina."
       />
       <div className="launch-panel">
         <PlayCircle size={44} />
-        <h2>Automação Lumina</h2>
-        <p>Abra o Lumina e acompanhe a execução do lançamento.</p>
+        <h2>Solicitação de lançamento</h2>
+        <p>Envie suas notas para a fila e acompanhe a execução pela próxima máquina disponível.</p>
         <button
           className="button primary"
           disabled={loading || restoring || profileLoading || isActive}

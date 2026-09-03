@@ -57,8 +57,8 @@ export function FilesPage() {
     <div className="page-stack">
       <SectionHeader
         eyebrow="Dados"
-        title="Arquivos"
-        description="Catálogo local de PDFs processados, baixados e registrados."
+        title="Arquivos processados"
+        description="Consulte o catálogo de documentos processados e seus respectivos resultados."
         actions={
           <button
             className="button secondary"

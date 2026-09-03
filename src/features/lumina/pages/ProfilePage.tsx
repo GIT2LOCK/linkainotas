@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState, type ChangeEvent, type ReactNode } from "react";
 import {
+  Building2,
   BriefcaseBusiness,
   Camera,
   CheckCircle2,
@@ -122,12 +123,20 @@ export function ProfilePage({ initialUser, onProfileUpdated }: ProfilePageProps)
     .slice(0, 2)
     .map((part) => part[0]?.toUpperCase())
     .join("");
+  const obraPrincipal =
+    currentProfile.obras.find((obra) => obra.principal) ?? currentProfile.obras[0];
+  const obraPrincipalNome = obraPrincipal
+    ? obraPrincipal.tipo === "escritorio"
+      ? "Escritório"
+      : obraPrincipal.nome
+    : "Não vinculada";
+
   return (
     <div className="page-stack">
       <SectionHeader
         eyebrow="Conta"
-        title="Meu Perfil"
-        description="Consulte seus dados e mantenha o acesso inicial do Lumina vinculado à sua conta."
+        title="Perfil da conta"
+        description="Gerencie sua identificação, seus vínculos organizacionais e o acesso inicial ao Lumina."
       />
 
       {loading ? <div className="loading-panel">Carregando perfil...</div> : null}
@@ -161,9 +170,23 @@ export function ProfilePage({ initialUser, onProfileUpdated }: ProfilePageProps)
             />
           </div>
           <div className="profile-identity-copy">
-            <span className="eyebrow">Usuário LinkAI</span>
+            <span className="eyebrow">Conta LinkAI</span>
             <h2>{currentProfile.nome}</h2>
             <p>{currentProfile.email}</p>
+            <div className="profile-identity-meta" aria-label="Resumo organizacional">
+              <span>
+                <Building2 aria-hidden="true" size={13} />
+                {currentProfile.empresaNome ?? "Empresa não vinculada"}
+              </span>
+              <span>
+                <BriefcaseBusiness aria-hidden="true" size={13} />
+                {obraPrincipalNome}
+              </span>
+              <span>
+                <ShieldCheck aria-hidden="true" size={13} />
+                {currentProfile.perfilNome}
+              </span>
+            </div>
             {uploading ? <small>Enviando nova foto...</small> : null}
           </div>
         </section>
@@ -172,8 +195,8 @@ export function ProfilePage({ initialUser, onProfileUpdated }: ProfilePageProps)
           <div className="profile-card-heading">
             <UserRound aria-hidden="true" size={18} />
             <div>
-              <h3>Dados cadastrados</h3>
-              <p>Nome, e-mail e vínculo definidos pela organização.</p>
+              <h3>Informações da conta</h3>
+              <p>Dados de identificação e vínculo corporativo definidos pela organização.</p>
             </div>
           </div>
           <div className="profile-data-list">
@@ -189,6 +212,12 @@ export function ProfilePage({ initialUser, onProfileUpdated }: ProfilePageProps)
               label="Função"
               value={currentProfile.perfilNome}
             />
+            <ProfileData
+              wide
+              icon={<Building2 size={15} />}
+              label="Obra"
+              value={obraPrincipalNome}
+            />
           </div>
         </section>
 
@@ -196,8 +225,8 @@ export function ProfilePage({ initialUser, onProfileUpdated }: ProfilePageProps)
           <div className="profile-card-heading">
             <KeyRound aria-hidden="true" size={18} />
             <div>
-              <h3>Acesso ao Lumina</h3>
-              <p>Usado pela máquina disponível para realizar seu lançamento.</p>
+              <h3>Credenciais do Lumina</h3>
+              <p>Utilizadas com segurança pela fila de lançamento de notas.</p>
             </div>
           </div>
           <div className="profile-data-list">
@@ -229,8 +258,10 @@ export function ProfilePage({ initialUser, onProfileUpdated }: ProfilePageProps)
           <div className="profile-card-heading">
             <BriefcaseBusiness aria-hidden="true" size={18} />
             <div>
-              <h3>Vínculos de acesso</h3>
-              <p>Obra e função são administradas pela empresa e não podem ser alteradas aqui.</p>
+              <h3>Vínculos organizacionais</h3>
+              <p>
+                Consulte sua empresa, obra e função. Esses dados são administrados pela organização.
+              </p>
             </div>
           </div>
           <div className="profile-work-list">
@@ -240,7 +271,7 @@ export function ProfilePage({ initialUser, onProfileUpdated }: ProfilePageProps)
               currentProfile.obras.map((obra) => (
                 <div className="profile-work-row" key={obra.id}>
                   <div>
-                    <strong>{obra.tipo === "escritorio" ? "ESCRITORIO" : obra.nome}</strong>
+                    <strong>{obra.tipo === "escritorio" ? "Escritório" : obra.nome}</strong>
                     <span>{obra.codigo}</span>
                   </div>
                   <span className="status-badge status-info">
@@ -253,7 +284,7 @@ export function ProfilePage({ initialUser, onProfileUpdated }: ProfilePageProps)
           </div>
           <div className="profile-readonly-note">
             <CheckCircle2 aria-hidden="true" size={14} />
-            Para mudar obra ou função, procure o supervisor da empresa.
+            Solicite alterações de obra ou função ao supervisor responsável.
           </div>
         </section>
       </div>
@@ -261,9 +292,19 @@ export function ProfilePage({ initialUser, onProfileUpdated }: ProfilePageProps)
   );
 }
 
-function ProfileData({ icon, label, value }: { icon: ReactNode; label: string; value: string }) {
+function ProfileData({
+  icon,
+  label,
+  value,
+  wide = false,
+}: {
+  icon: ReactNode;
+  label: string;
+  value: string;
+  wide?: boolean;
+}) {
   return (
-    <div className="profile-data-row">
+    <div className={`profile-data-row${wide ? " profile-data-wide" : ""}`}>
       <span className="profile-data-icon">{icon}</span>
       <div>
         <span>{label}</span>

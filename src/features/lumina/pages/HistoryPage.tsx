@@ -45,9 +45,9 @@ export function HistoryPage() {
   return (
     <div className="page-stack">
       <SectionHeader
-        eyebrow="Sistema"
-        title="Histórico"
-        description="Processamentos, origem, duração, erros e arquivos gerados."
+        eyebrow="Monitoramento"
+        title="Histórico de processamentos"
+        description="Consulte resultados, duração, origem e arquivos gerados em cada processamento."
         actions={
           <button
             className="button secondary"

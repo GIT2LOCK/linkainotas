@@ -54,9 +54,9 @@ export function ActivitiesPage() {
             Atualizar
           </button>
         }
-        description="Operações registradas nas obras visíveis para você, atualizadas automaticamente."
-        eyebrow="Sistema"
-        title="Atividades"
+        description="Audite lançamentos, processamentos e alterações realizados nos escopos sob sua responsabilidade."
+        eyebrow="Monitoramento"
+        title="Atividade da equipe"
       />
       {action.error ? <p className="hint">{action.error}</p> : null}
       <DataTable

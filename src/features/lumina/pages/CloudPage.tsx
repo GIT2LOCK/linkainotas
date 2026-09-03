@@ -12,8 +12,8 @@ export function CloudPage() {
     <div className="page-stack">
       <SectionHeader
         eyebrow="Dados"
-        title="Nuvem"
-        description="Verifique a conexão privada, o espaço de arquivos e a pasta configurada."
+        title="Armazenamento em nuvem"
+        description="Verifique a disponibilidade do armazenamento e a origem dos documentos utilizados nos fluxos."
         actions={
           <button
             className="button primary"
@@ -28,11 +28,11 @@ export function CloudPage() {
       <div className="settings-grid">
         <div className="content-band">
           <CloudCog size={28} />
-          <h3>Conexão privada</h3>
-          <p>Use este painel para validar se os documentos estão acessíveis na nuvem.</p>
+          <h3>Conexão de documentos</h3>
+          <p>Valide a disponibilidade dos documentos armazenados para os fluxos do LinkAI.</p>
         </div>
         <div className="content-band">
-          <h3>Status</h3>
+          <h3>Status da conexão</h3>
           {action.data ? (
             <>
               <div className="activity-line">

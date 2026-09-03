@@ -408,7 +408,7 @@ export function ProcessPdfsPage() {
         <div className="workflow-primary">
           <section className="process-hero">
             <div>
-              <span className="eyebrow">Fluxo fiscal</span>
+              <span className="eyebrow">Processamento fiscal</span>
               <h2>Processamento de documentos</h2>
               <p>Importe PDFs e XMLs, acompanhe a detecção fiscal e gere planilhas consolidadas.</p>
             </div>
@@ -451,23 +451,23 @@ export function ProcessPdfsPage() {
           <div className="source-grid process-source-grid">
             <SourceOption
               active={source === "supabase"}
-              description="Documentos salvos na nuvem"
+              description="Documentos disponíveis no armazenamento conectado"
               icon={UploadCloud}
-              label="Nuvem"
+              label="Documentos na nuvem"
               onClick={selectCloud}
             />
             <SourceOption
               active={source === "folder"}
-              description="PDFs/XMLs de uma pasta"
+              description="PDFs e XMLs de uma pasta no computador"
               icon={FolderOpen}
-              label="Pasta inteira"
+              label="Pasta local"
               onClick={selectFolder}
             />
             <SourceOption
               active={source === "files"}
-              description="Seleção avulsa de arquivos"
+              description="Seleção de arquivos individuais"
               icon={MousePointer}
-              label="Arquivos manuais"
+              label="Seleção manual"
               onClick={selectFiles}
             />
           </div>
@@ -504,7 +504,7 @@ export function ProcessPdfsPage() {
 
           <DataTable
             columns={columns}
-            emptyLabel="Nenhum documento processado ainda."
+            emptyLabel="Nenhum documento processado nesta sessão."
             rows={rows as unknown as Record<string, unknown>[]}
           />
         </div>
@@ -512,8 +512,8 @@ export function ProcessPdfsPage() {
         <aside className="workflow-aside">
           <div className="download-location-panel">
             <div>
-              <strong>Local padrão de download</strong>
-              <span>{selectedDownloadLabel ?? "Escolha uma pasta antes de processar."}</span>
+              <strong>Destino dos arquivos gerados</strong>
+              <span>{selectedDownloadLabel ?? "Selecione uma pasta antes de processar."}</span>
             </div>
             <button className="button secondary" onClick={selectDownloadPath} type="button">
               <Download size={16} />
@@ -524,7 +524,7 @@ export function ProcessPdfsPage() {
           {selectedPaths.length > 0 ? (
             <div className="selected-files-panel">
               <div>
-                <span>Selecionado</span>
+                <span>Documentos selecionados</span>
                 <strong>
                   {selectedPaths.length === 1 ? "1 item" : `${selectedPaths.length} itens`}
                 </strong>
@@ -535,41 +535,41 @@ export function ProcessPdfsPage() {
                 ))}
               </ul>
               {selectedPaths.length > 6 ? (
-                <small>+{selectedPaths.length - 6} arquivo(s) oculto(s)</small>
+                <small>+{selectedPaths.length - 6} documento(s) não exibido(s)</small>
               ) : null}
             </div>
           ) : null}
 
           <div className="content-band option-panel">
             <div className="panel-heading">
-              <h3>Opções</h3>
-              <span>Preferências do processamento</span>
+              <h3>Preferências de processamento</h3>
+              <span>Defina como os documentos serão tratados.</span>
             </div>
             <div className="toggle-grid">
               <ToggleRow
                 checked={options.generateExcel}
-                label="Gerar Excel"
+                label="Gerar planilha Excel"
                 onChange={(checked) =>
                   setOptions((current) => ({ ...current, generateExcel: checked }))
                 }
               />
               <ToggleRow
                 checked={options.downloadPdfsLocally}
-                label="Baixar PDFs localmente"
+                label="Baixar PDFs no computador"
                 onChange={(checked) =>
                   setOptions((current) => ({ ...current, downloadPdfsLocally: checked }))
                 }
               />
               <ToggleRow
                 checked={options.ignoreDuplicates}
-                label="Ignorar PDFs duplicados"
+                label="Ignorar documentos duplicados"
                 onChange={(checked) =>
                   setOptions((current) => ({ ...current, ignoreDuplicates: checked }))
                 }
               />
               <ToggleRow
                 checked={options.useCache}
-                label="Utilizar cache"
+                label="Reutilizar resultados em cache"
                 onChange={(checked) => setOptions((current) => ({ ...current, useCache: checked }))}
               />
               <ToggleRow
@@ -581,14 +581,14 @@ export function ProcessPdfsPage() {
               />
               <ToggleRow
                 checked={options.useAiWhenNeeded}
-                label="Utilizar IA quando necessário"
+                label="Usar IA quando necessário"
                 onChange={(checked) =>
                   setOptions((current) => ({ ...current, useAiWhenNeeded: checked }))
                 }
               />
               <ToggleRow
                 checked={options.processSubfolders}
-                label="Processar subpastas"
+                label="Incluir subpastas"
                 onChange={(checked) =>
                   setOptions((current) => ({ ...current, processSubfolders: checked }))
                 }
@@ -598,8 +598,8 @@ export function ProcessPdfsPage() {
 
           <div className="content-band excel-panel">
             <div className="panel-heading">
-              <h3>Excel</h3>
-              <span>Formato de saída</span>
+              <h3>Exportação para Excel</h3>
+              <span>Escolha o formato do arquivo gerado.</span>
             </div>
             <div className="segmented-stack" role="group" aria-label="Modo de geração do Excel">
               <button
@@ -607,21 +607,21 @@ export function ProcessPdfsPage() {
                 onClick={() => setExcelMode("one_file_per_pdf")}
                 type="button"
               >
-                Uma planilha por PDF
+                Uma planilha por documento
               </button>
               <button
                 className={`segmented ${options.excelMode === "single_sheet" ? "is-active" : ""}`}
                 onClick={() => setExcelMode("single_sheet")}
                 type="button"
               >
-                Uma única aba
+                Uma planilha consolidada
               </button>
               <button
                 className={`segmented ${options.excelMode === "multi_sheet" ? "is-active" : ""}`}
                 onClick={() => setExcelMode("multi_sheet")}
                 type="button"
               >
-                Abas separadas
+                Uma aba por documento
               </button>
             </div>
             <div className="hint">
@@ -743,9 +743,7 @@ function ProcessingProgressPanel({ fallbackTotal, progress }: ProcessingProgress
       ? progress.currentFile.split(/[\\/]/).pop()
       : null;
   const phase =
-    progress?.status === "running" && progress.phase
-      ? progress.phase
-      : "Preparando processamento";
+    progress?.status === "running" && progress.phase ? progress.phase : "Preparando processamento";
 
   return (
     <section className="processing-progress-panel" aria-label="Andamento do processamento">
@@ -761,9 +759,7 @@ function ProcessingProgressPanel({ fallbackTotal, progress }: ProcessingProgress
               : undefined
           }
         >
-          <span>
-            {determinate ? `${percent}%` : <LoaderCircle className="spin" size={16} />}
-          </span>
+          <span>{determinate ? `${percent}%` : <LoaderCircle className="spin" size={16} />}</span>
         </div>
         <div className="processing-progress-copy">
           <div className="progress-heading">

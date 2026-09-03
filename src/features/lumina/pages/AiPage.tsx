@@ -4,13 +4,13 @@ export function AiPage() {
   return (
     <div className="page-stack">
       <SectionHeader
-        eyebrow="Operação"
-        title="Inteligência Artificial"
-        description="Configure quando a análise inteligente deve ser acionada."
+        eyebrow="Recursos"
+        title="Inteligência artificial"
+        description="Recursos inteligentes disponíveis para apoiar a análise dos seus documentos."
       />
       <div className="content-band">
-        <h3>Fallback inteligente</h3>
-        <p>Sem provedores configurados no momento.</p>
+        <h3>Análise assistida</h3>
+        <p>Nenhum provedor de inteligência artificial está configurado neste ambiente.</p>
       </div>
     </div>
   );

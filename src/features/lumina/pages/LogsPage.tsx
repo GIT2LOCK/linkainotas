@@ -19,9 +19,9 @@ export function LogsPage() {
   return (
     <div className="page-stack">
       <SectionHeader
-        eyebrow="Sistema"
-        title="Logs"
-        description="Acompanhe os eventos recentes do sistema."
+        eyebrow="Monitoramento"
+        title="Logs do sistema"
+        description="Acompanhe eventos técnicos e sinais operacionais do ambiente."
         actions={
           <button className="button secondary" onClick={() => action.run()} type="button">
             Atualizar

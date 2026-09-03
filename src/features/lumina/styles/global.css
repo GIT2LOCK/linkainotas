@@ -2804,6 +2804,31 @@
   overflow-wrap: anywhere;
 }
 
+.profile-identity-meta {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 6px 10px;
+  margin-top: 5px;
+}
+
+.profile-identity-meta span {
+  display: inline-flex;
+  max-width: 100%;
+  align-items: center;
+  gap: 4px;
+  overflow: hidden;
+  color: var(--text-soft);
+  font-size: 11px;
+  font-weight: 620;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.profile-identity-meta svg {
+  color: var(--accent);
+}
+
 .profile-identity-copy small {
   color: var(--accent);
   font-size: 11px;
@@ -2846,6 +2871,10 @@
   border: 1px solid var(--line-soft);
   border-radius: var(--radius);
   background: var(--surface-muted);
+}
+
+.profile-data-wide {
+  grid-column: 1 / -1;
 }
 
 .profile-data-icon {
