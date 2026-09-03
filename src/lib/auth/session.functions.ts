@@ -63,6 +63,10 @@ export const getCurrentSession = createServerFn({ method: "GET" }).handler(
     if (!profile || !profile.ativo) return { user: null };
 
     const access = await getAccessContext(profile.id, profile.isPlatformSuperadmin);
+    const { resolveAvatarUrl } = await import("@/lib/security/avatar-url.server");
+    const avatarUrl = await resolveAvatarUrl(profile.avatarUrl);
+
+
 
     return {
       user: {
