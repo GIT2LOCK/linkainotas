@@ -11,6 +11,7 @@ import {
   ScrollText,
   Settings,
   Activity,
+  UserRound,
 } from "lucide-react";
 
 import { AppShell } from "./layouts/AppShell";
@@ -47,6 +48,9 @@ const LogsPage = lazy(() =>
 );
 const ActivitiesPage = lazy(() =>
   import("./pages/ActivitiesPage").then((module) => ({ default: module.ActivitiesPage })),
+);
+const ProfilePage = lazy(() =>
+  import("./pages/ProfilePage").then((module) => ({ default: module.ProfilePage })),
 );
 
 export interface LuminaSessionUser {
@@ -104,6 +108,7 @@ const navigation: NavigationItem[] = [
     icon: Activity,
     permissao: "queue.monitor",
   },
+  { group: "Sistema", key: "meu-perfil", label: "Meu Perfil", icon: UserRound },
   { group: "Sistema", key: "logs", label: "Logs", icon: LineChart, permissao: "logs.view" },
   {
     group: "Sistema",
@@ -117,9 +122,10 @@ const navigation: NavigationItem[] = [
 const ALL_PERMISSOES = ["access.manage", "works.manage", "records.manage"];
 
 export function LuminaApp({ user }: { user: LuminaSessionUser }) {
+  const [sessionUser, setSessionUser] = useState(user);
   const [selectedPage, setSelectedPage] = useState<PageKey>("home");
-  const permissoes = user.permissoes ?? [];
-  const isSuperadmin = user.isPlatformSuperadmin === true;
+  const permissoes = useMemo(() => sessionUser.permissoes ?? [], [sessionUser.permissoes]);
+  const isSuperadmin = sessionUser.isPlatformSuperadmin === true;
   const availableNavigation = useMemo(
     () =>
       navigation.filter(
@@ -153,12 +159,19 @@ export function LuminaApp({ user }: { user: LuminaSessionUser }) {
         return <SettingsPage permissoes={isSuperadmin ? ALL_PERMISSOES : permissoes} />;
       case "atividades":
         return <ActivitiesPage />;
+      case "meu-perfil":
+        return (
+          <ProfilePage
+            initialUser={sessionUser}
+            onProfileUpdated={(update) => setSessionUser((current) => ({ ...current, ...update }))}
+          />
+        );
       case "logs":
         return <LogsPage />;
       default:
         return <HomePage />;
     }
-  }, [activePage, isSuperadmin, permissoes]);
+  }, [activePage, isSuperadmin, permissoes, sessionUser]);
 
   return (
     <AppShell
@@ -169,7 +182,7 @@ export function LuminaApp({ user }: { user: LuminaSessionUser }) {
           setSelectedPage(pageKey);
         }
       }}
-      user={user}
+      user={sessionUser}
     >
       <Suspense fallback={<div className="loading-panel">Carregando...</div>}>{page}</Suspense>
     </AppShell>

@@ -155,7 +155,13 @@ export function AppShell({ activePage, children, navigation, onNavigate, user }:
               </datalist>
             </form>
 
-            <div className="topbar-greeting">
+            <button
+              aria-label="Abrir Meu Perfil"
+              className="topbar-greeting profile-trigger"
+              onClick={() => onNavigate("meu-perfil")}
+              title="Abrir Meu Perfil"
+              type="button"
+            >
               <span className="user-initials">
                 {user.avatarUrl ? <img alt="" src={user.avatarUrl} /> : initials || "LA"}
               </span>
@@ -163,7 +169,7 @@ export function AppShell({ activePage, children, navigation, onNavigate, user }:
                 <span className="eyebrow">{role}</span>
                 <strong>{user.nome}</strong>
               </div>
-            </div>
+            </button>
 
             <div className="topbar-actions">
               <button

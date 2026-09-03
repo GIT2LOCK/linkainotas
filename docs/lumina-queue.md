@@ -15,6 +15,7 @@ Migrações aplicadas, nesta ordem:
 1. `supabase/migrations/20260819130000_create_lumina_jobs_queue.sql`
 2. `supabase/migrations/20260827161250_*.sql` (fila durável, logs, RPCs e RLS)
 3. `supabase/migrations/20260827161322_*.sql` (restrição de execução das funções internas)
+4. `supabase/migrations/20260903120000_add_lumina_credentials_and_profile.sql` (credenciais cifradas e fotos de perfil)
 
 ### Funções
 
@@ -31,12 +32,11 @@ Os quatro RPCs operacionais são executáveis somente por `service_role` (chave 
 ```env
 SUPABASE_URL=https://seu-projeto.supabase.co
 SUPABASE_SERVICE_ROLE_KEY=chave-de-servico
+LINKAI_LUMINA_CREDENTIALS_KEY=mesmo-segredo-do-Lovable
 LINKAI_WORKER_ID=lumina-maquina-01
 LINKAI_QUEUE_WORKER_ENABLED=true
 LINKAI_QUEUE_POLL_SECONDS=3
 LINKAI_QUEUE_LEASE_SECONDS=300
-LUMINA_USERNAME=usuario-do-lumina
-LUMINA_PASSWORD=senha-do-lumina
 LUMINA_EXECUTABLE_PATH=C:\caminho\para\900_Lumina.exe
 ```
 
@@ -58,3 +58,10 @@ curl.exe http://127.0.0.1:8766/health
 4. Enquanto o Lumina estiver aberto, o worker renova a reserva.
 5. Ao concluir, `finish_lumina_job` grava o histórico, atualiza a solicitação-pai e remove o item da fila.
 6. Se uma máquina cair, o item volta a ficar elegível após `leased_until` expirar, com limite de 3 tentativas.
+
+`LINKAI_LUMINA_CREDENTIALS_KEY` deve ser exatamente igual no ambiente seguro
+do Lovable e nas duas máquinas. Ela protege a senha Lumina individual de cada
+usuário. Nunca coloque esse valor no frontend, em uma variável `VITE_*` ou no
+Git. O usuário cadastra seu login Lumina na primeira utilização de **Iniciar
+lançamento**; depois, o estado fica disponível em **Meu Perfil**. A troca
+posterior é encaminhada ao suporte técnico pelo botão **Alterar login Lumina**.

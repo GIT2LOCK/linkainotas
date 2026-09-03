@@ -1,5 +1,5 @@
-import { useEffect, useState } from "react";
-import { PlayCircle } from "lucide-react";
+import { useEffect, useState, type FormEvent } from "react";
+import { KeyRound, PlayCircle, X } from "lucide-react";
 import { SectionHeader } from "../components/SectionHeader";
 import {
   enqueueLuminaLaunch,
@@ -7,11 +7,22 @@ import {
   getLuminaJobStatus,
   type LuminaJob,
 } from "../services/lumina-queue.functions";
+import {
+  getMeuPerfil,
+  saveMyInitialLuminaCredentials,
+  type MeuPerfil,
+} from "../services/profile.functions";
 
 export function LaunchNotesPage() {
   const [job, setJob] = useState<LuminaJob | null>(null);
   const [loading, setLoading] = useState(false);
   const [restoring, setRestoring] = useState(true);
+  const [profile, setProfile] = useState<MeuPerfil | null>(null);
+  const [profileLoading, setProfileLoading] = useState(true);
+  const [credentialDialogOpen, setCredentialDialogOpen] = useState(false);
+  const [luminaUsername, setLuminaUsername] = useState("");
+  const [luminaPassword, setLuminaPassword] = useState("");
+  const [savingCredentials, setSavingCredentials] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const jobId = job?.id;
   const jobStatus = job?.status;
@@ -28,6 +39,28 @@ export function LaunchNotesPage() {
       })
       .finally(() => {
         if (!cancelled) setRestoring(false);
+      });
+
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+
+  useEffect(() => {
+    let cancelled = false;
+
+    getMeuPerfil({ data: {} })
+      .then((currentProfile) => {
+        if (!cancelled) {
+          setProfile(currentProfile);
+          setLuminaUsername(currentProfile.luminaUsername ?? "");
+        }
+      })
+      .catch(() => {
+        // The server validates the profile again when credentials are saved.
+      })
+      .finally(() => {
+        if (!cancelled) setProfileLoading(false);
       });
 
     return () => {
@@ -62,7 +95,7 @@ export function LaunchNotesPage() {
     };
   }, [jobId, jobStatus]);
 
-  const requestLaunch = async () => {
+  const enqueueRequest = async () => {
     setLoading(true);
     setError(null);
 
@@ -76,6 +109,50 @@ export function LaunchNotesPage() {
       );
     } finally {
       setLoading(false);
+    }
+  };
+
+  const requestLaunch = () => {
+    if (!profile?.luminaUsername || !profile.luminaPasswordSet) {
+      setCredentialDialogOpen(true);
+      setLuminaUsername(profile?.luminaUsername ?? "");
+      setLuminaPassword("");
+      return;
+    }
+
+    void enqueueRequest();
+  };
+
+  const saveCredentialsAndLaunch = async (event: FormEvent<HTMLFormElement>) => {
+    event.preventDefault();
+    setSavingCredentials(true);
+    setError(null);
+
+    try {
+      const saved = await saveMyInitialLuminaCredentials({
+        data: { username: luminaUsername, password: luminaPassword },
+      });
+      setProfile((current) =>
+        current
+          ? {
+              ...current,
+              luminaUsername: saved.luminaUsername,
+              luminaPasswordSet: saved.luminaPasswordSet,
+              luminaCredentialsUpdatedAt: saved.luminaCredentialsUpdatedAt,
+            }
+          : current,
+      );
+      setLuminaPassword("");
+      setCredentialDialogOpen(false);
+      await enqueueRequest();
+    } catch (requestError) {
+      setError(
+        requestError instanceof Error
+          ? requestError.message
+          : "Não foi possível salvar o login do Lumina.",
+      );
+    } finally {
+      setSavingCredentials(false);
     }
   };
 
@@ -115,19 +192,21 @@ export function LaunchNotesPage() {
         <p>Abra o Lumina e acompanhe a execução do lançamento.</p>
         <button
           className="button primary"
-          disabled={loading || restoring || isActive}
+          disabled={loading || restoring || profileLoading || isActive}
           onClick={requestLaunch}
           type="button"
         >
           {restoring
             ? "Consultando fila"
-            : loading
-              ? "Entrando na fila"
-              : job?.status === "queued"
-                ? "Aguardando máquina"
-                : job?.status === "running"
-                  ? "Em execução"
-                  : "Iniciar lançamento"}
+            : profileLoading
+              ? "Consultando perfil"
+              : loading
+                ? "Entrando na fila"
+                : job?.status === "queued"
+                  ? "Aguardando máquina"
+                  : job?.status === "running"
+                    ? "Em execução"
+                    : "Iniciar lançamento"}
         </button>
         {progressMessage ? <p className="queue-progress">{progressMessage}</p> : null}
         {statusMessage ? (
@@ -136,6 +215,79 @@ export function LaunchNotesPage() {
           </div>
         ) : null}
       </div>
+
+      {credentialDialogOpen ? (
+        <div className="modal-backdrop" role="presentation">
+          <div
+            aria-labelledby="lumina-credentials-title"
+            aria-modal="true"
+            className="modal-card"
+            role="dialog"
+          >
+            <div className="modal-card-heading">
+              <div className="modal-card-icon">
+                <KeyRound aria-hidden="true" size={18} />
+              </div>
+              <div>
+                <h2 id="lumina-credentials-title">Acesso do Lumina</h2>
+                <p>Informe seu login para que uma máquina disponível faça o lançamento.</p>
+              </div>
+              <button
+                aria-label="Fechar"
+                className="icon-button"
+                disabled={savingCredentials}
+                onClick={() => setCredentialDialogOpen(false)}
+                title="Fechar"
+                type="button"
+              >
+                <X size={16} />
+              </button>
+            </div>
+            <form className="modal-form" onSubmit={(event) => void saveCredentialsAndLaunch(event)}>
+              <label className="field">
+                <span>Usuário Lumina</span>
+                <input
+                  autoComplete="username"
+                  autoFocus
+                  onChange={(event) => setLuminaUsername(event.target.value)}
+                  placeholder="Digite seu usuário"
+                  required
+                  value={luminaUsername}
+                />
+              </label>
+              <label className="field">
+                <span>Senha Lumina</span>
+                <input
+                  autoComplete="current-password"
+                  onChange={(event) => setLuminaPassword(event.target.value)}
+                  placeholder="Digite sua senha"
+                  required
+                  type="password"
+                  value={luminaPassword}
+                />
+              </label>
+              <p className="field-hint">
+                A senha fica protegida e não é exibida novamente. Para trocar o login depois,
+                solicite atendimento técnico no Meu Perfil.
+              </p>
+              <div className="modal-actions">
+                <button
+                  className="button ghost"
+                  disabled={savingCredentials}
+                  onClick={() => setCredentialDialogOpen(false)}
+                  type="button"
+                >
+                  Cancelar
+                </button>
+                <button className="button primary" disabled={savingCredentials} type="submit">
+                  <KeyRound aria-hidden="true" size={14} />
+                  {savingCredentials ? "Salvando..." : "Salvar e iniciar"}
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      ) : null}
     </div>
   );
 }

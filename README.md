@@ -218,6 +218,7 @@ aplicação destes arquivos, nesta ordem:
 supabase/migrations/20260819130000_create_lumina_jobs_queue.sql
 supabase/migrations/20260827161250_*.sql
 supabase/migrations/20260827161322_*.sql
+supabase/migrations/20260903120000_add_lumina_credentials_and_profile.sql
 ```
 
 Os dois últimos nomes possuem um sufixo gerado pelo Lovable. O arquivo
@@ -293,7 +294,21 @@ SUPABASE_FOLDER=
 LINKAI_ALLOWED_ORIGINS=https://seu-dominio.example
 LINKAI_PROCESSING_TOKEN=
 LINKAI_BRIDGE_TOKEN=
+LINKAI_LUMINA_CREDENTIALS_KEY=
 ```
+
+Para o lançamento no Lumina, o ambiente seguro do Lovable também precisa ter
+`LINKAI_LUMINA_CREDENTIALS_KEY`. Essa chave deve ser a mesma configurada nas
+duas máquinas Windows que executam os workers. Ela protege a senha Lumina
+individual de cada usuário. O valor nunca deve ser prefixado com `VITE_`,
+versionado ou exibido no navegador.
+
+O usuário informa suas credenciais na primeira execução de **Iniciar
+Lançamento**. O cadastro fica disponível em **Meu Perfil**, com senha sempre
+mascarada. Nome, e-mail, empresa, obra e função são somente leitura para o
+usuário comum; a alteração de obra/função continua sendo responsabilidade da
+administração. O botão de alteração do login Lumina encaminha a solicitação ao
+suporte técnico nesta etapa.
 
 ## Desenvolvimento local
 

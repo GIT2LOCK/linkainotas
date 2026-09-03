@@ -23,10 +23,10 @@ export type LinkaiUser = {
   isPlatformSuperadmin: boolean;
   empresaId: number | null;
   avatarUrl: string | null;
+  avatarCustomized: boolean;
   ativo: boolean;
   twoFactorPolicy: string;
 };
-
 
 /** Busca um usuário do GoTrue por e-mail via Admin API REST (filtro por e-mail). */
 async function findAuthUserIdByEmail(email: string): Promise<string | null> {
@@ -94,6 +94,7 @@ function mapRow(
     permissao: string | null;
     empresa_id: number | null;
     avatar_url: string | null;
+    avatar_customized?: boolean | null;
     ativo: boolean | null;
     is_platform_superadmin?: boolean | null;
     two_factor_policy?: string | null;
@@ -113,6 +114,7 @@ function mapRow(
     isPlatformSuperadmin,
     empresaId: row.empresa_id,
     avatarUrl: row.avatar_url,
+    avatarCustomized: row.avatar_customized === true,
     ativo: row.ativo !== false,
     twoFactorPolicy: row.two_factor_policy ?? "optional",
   };
@@ -133,7 +135,7 @@ async function resolvePerfilInterno(usuarioId: number): Promise<string> {
 }
 
 const USER_COLUMNS =
-  "id, auth_user_id, ariia_user_id, nome, email, permissao, empresa_id, avatar_url, ativo, is_platform_superadmin, two_factor_policy";
+  "id, auth_user_id, ariia_user_id, nome, email, permissao, empresa_id, avatar_url, avatar_customized, ativo, is_platform_superadmin, two_factor_policy";
 
 export type LinkaiObraAtribuida = {
   obraId: string;
@@ -198,7 +200,6 @@ export async function getAccessContext(
   };
 }
 
-
 /**
  * Idempotente: resolve (ou cria) o usuário-espelho para a identidade do Ariia
  * e mantém nome/e-mail/avatar sincronizados a cada login.
@@ -228,7 +229,7 @@ export async function ensureShadowUser(identity: AriiaIdentity): Promise<LinkaiU
         ariia_user_id: identity.sub,
         nome,
         email: identity.email,
-        avatar_url: identity.picture,
+        ...(byAriia?.avatar_customized === true ? {} : { avatar_url: identity.picture }),
         ...(identity.permissao ? { permissao: identity.permissao } : {}),
         atualizado_em: new Date().toISOString(),
       },
@@ -276,4 +277,3 @@ export async function getLinkaiUserByAuthId(authUserId: string): Promise<LinkaiU
 
   return mapRow(data, await resolvePerfilInterno(data.id));
 }
-

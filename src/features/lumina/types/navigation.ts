@@ -12,6 +12,7 @@ export type PageKey =
   | "historico"
   | "atividades"
   | "configuracoes"
+  | "meu-perfil"
   | "logs";
 
 export interface NavigationItem {
