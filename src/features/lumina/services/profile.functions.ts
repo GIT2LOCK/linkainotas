@@ -106,12 +106,14 @@ export const getMeuPerfil = createServerFn({ method: "GET" })
       empresaNome = empresa?.nome_fantasia ?? null;
     }
 
+    const { resolveAvatarUrl } = await import("@/lib/security/avatar-url.server");
+
     return {
       authUserId: user.auth_user_id,
       usuarioId: user.id,
       nome: user.nome,
       email: user.email,
-      avatarUrl: user.avatar_url,
+      avatarUrl: await resolveAvatarUrl(user.avatar_url),
       empresaNome,
       perfilCodigo,
       perfilNome: profileNames.get(perfilCodigo) ?? perfilCodigo,
