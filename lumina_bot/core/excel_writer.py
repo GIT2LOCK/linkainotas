@@ -413,7 +413,6 @@ class ExcelWriter:
         installments = nota.parcelas if include_installments else []
         first_installment = installments[0] if installments else None
         second_installment = installments[1] if len(installments) > 1 else None
-        item_code = getattr(item, "codigo", None) if item is not None else None
         service_code = nota.codigo_servico
 
         values: dict[str, Any] = {
@@ -443,13 +442,10 @@ class ExcelWriter:
             "I": nota.serie,
             "J": self._date_value(nota.data_emissao),
             "K": service_code,
-            "L": item_code or service_code,
-            "M": self._extra_from_mapping(
-                extras,
-                "alocacao_lumina",
-                "codigo_obra",
-                "project_task_id",
-            ),
+            # These columns require internal Lumina data that is not present
+            # in fiscal PDFs. They must remain blank until supplied by Lumina.
+            "L": None,
+            "M": None,
             "N": amount,
             "O": self._date_value(first_installment.vencimento) if first_installment else None,
             "Q": first_installment.valor if first_installment else None,

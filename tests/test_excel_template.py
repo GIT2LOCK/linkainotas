@@ -41,6 +41,10 @@ class ExcelTemplateTests(unittest.TestCase):
             parcelas=[
                 Parcela(numero="001", vencimento="2026-09-20", valor=150.0)
             ],
+            outros_campos={
+                "codigo_obra": "50201",
+                "alocacao_lumina": "OBRA-INTERNAL",
+            },
         )
 
         with tempfile.TemporaryDirectory() as directory:
@@ -57,7 +61,8 @@ class ExcelTemplateTests(unittest.TestCase):
             self.assertEqual(launches["E3"].value, "12.345.678/0001-90")
             self.assertEqual(launches["F3"].value, "Fornecedor de Teste LTDA")
             self.assertEqual(launches["H3"].value, "0000123")
-            self.assertEqual(launches["L3"].value, "MAT-01")
+            self.assertIsNone(launches["L3"].value)
+            self.assertIsNone(launches["M3"].value)
             self.assertEqual(launches["N3"].value, 150)
             self.assertEqual(launches["Q3"].value, 150)
             self.assertEqual(launches["O3"].value, datetime(2026, 9, 20))
