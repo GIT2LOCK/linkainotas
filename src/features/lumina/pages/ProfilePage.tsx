@@ -29,7 +29,7 @@ export function ProfilePage({ initialUser, onProfileUpdated }: ProfilePageProps)
   useEffect(() => {
     let cancelled = false;
 
-    getMeuPerfil({ data: {} })
+    getMeuPerfil()
       .then((data) => {
         if (!cancelled) setProfile(data);
       })
