@@ -45,7 +45,7 @@ class NfeDanfe55Parser(BaseParser):
         self._parse_identity(nota, lines, text)
         self._parse_parties(nota, lines, text)
         self._parse_dates_and_protocol(nota, lines, text, words)
-        self._parse_installments(nota, lines)
+        self._parse_installments(nota, lines, text)
         self._parse_totals(nota, lines)
         self._parse_item(nota, lines)
         self._parse_transport(nota, lines)
@@ -143,16 +143,25 @@ class NfeDanfe55Parser(BaseParser):
             nota.outros_campos["data_autorizacao"] = f"{iso_date(date_time.group(1))}T{date_time.group(2)}"
         record_field(nota, "data_emissao", nota.data_emissao, raw=emission, page=1)
 
-    def _parse_installments(self, nota: NotaFiscal, lines: list[str]) -> None:
-        for index, line in enumerate(lines):
-            if not re.fullmatch(r"\d{3}", line) or index + 2 >= len(lines):
+    def _parse_installments(
+        self,
+        nota: NotaFiscal,
+        lines: list[str],
+        text: str | None = None,
+    ) -> None:
+        source_lines = self._lines(text) if text else lines
+        for index, line in enumerate(source_lines):
+            if not re.fullmatch(r"\d{3}", line) or index + 2 >= len(source_lines):
                 continue
-            if not re.fullmatch(r"\d{2}/\d{2}/\d{4}", lines[index + 1]):
+            if not re.fullmatch(r"\d{2}/\d{2}/\d{4}", source_lines[index + 1]):
                 continue
-            if decimal(lines[index + 2]) is None:
+            if decimal(source_lines[index + 2]) is None:
                 continue
-            raw = f"{line} {lines[index + 1]} {lines[index + 2]}"
-            nota.parcelas.append(Parcela(numero=line, vencimento=iso_date(lines[index + 1]), valor=decimal(lines[index + 2]), raw=raw, pagina=1))
+            raw = f"{line} {source_lines[index + 1]} {source_lines[index + 2]}"
+            nota.parcelas.append(Parcela(numero=line, vencimento=iso_date(source_lines[index + 1]), valor=decimal(source_lines[index + 2]), raw=raw, pagina=1))
+
+        if not nota.parcelas:
+            self._append_labeled_installments(nota, text or "\n".join(source_lines))
 
     def _parse_totals(self, nota: NotaFiscal, lines: list[str]) -> None:
         pairs = {
@@ -280,7 +289,7 @@ class NfeDanfe55Parser(BaseParser):
             # The generic line parser can mistake the note number for a
             # three-digit installment when OCR separates the columns.
             nota.parcelas = []
-        self._parse_variant_installments(nota, lines, words)
+        self._parse_variant_installments(nota, lines, words, text)
         self._parse_variant_transport(nota, lines, words, text)
         self._parse_ocr_transport(nota, text)
         self._parse_ocr_variant_fields(nota, lines, text)
@@ -938,17 +947,74 @@ class NfeDanfe55Parser(BaseParser):
             "valor_liquido": self._ocr_decimal(liquid),
         }
 
-    def _parse_variant_installments(self, nota: NotaFiscal, lines: list[str], words: tuple[object, ...] = ()) -> None:
+    def _append_labeled_installments(self, nota: NotaFiscal, text: str) -> bool:
+        """Recover due dates when OCR separates payment labels and values."""
+        normalized = normalize_text(text)
+        due_pattern = re.compile(
+            r"\b(?:data\s+de\s+)?(?:vencimento|venc|vcto)\.?\s*[:=-]?\s*"
+            r"(\d{2}/\d{2}/\d{4})",
+            re.IGNORECASE,
+        )
+        matches = list(due_pattern.finditer(normalized))
+        if not matches:
+            return False
+
+        money_pattern = r"-?\d{1,3}(?:[.,]\d{3})*[.,]\d{2}"
+        added = False
+        for match in matches:
+            date_value = iso_date(match.group(1))
+            if not date_value or any(parcela.vencimento == date_value for parcela in nota.parcelas):
+                continue
+
+            window = normalized[max(0, match.start() - 180):match.end() + 220]
+            number_match = re.search(
+                r"\b(?:numero|num|n)\.?\s*[:#=-]?\s*([0-9]{1,6})\b",
+                window,
+                re.IGNORECASE,
+            )
+            amount_match = re.search(
+                rf"\bvalor\b[^0-9-]{{0,16}}({money_pattern})",
+                window,
+                re.IGNORECASE,
+            )
+            amount = decimal(amount_match.group(1)) if amount_match else None
+            if amount is None and len(matches) == 1:
+                amount = nota.valor_total or nota.valor_bruto
+
+            nota.parcelas.append(
+                Parcela(
+                    numero=number_match.group(1) if number_match else None,
+                    vencimento=date_value,
+                    valor=amount,
+                    raw=window,
+                    pagina=1,
+                )
+            )
+            added = True
+
+        return added
+
+    def _parse_variant_installments(
+        self,
+        nota: NotaFiscal,
+        lines: list[str],
+        words: tuple[object, ...] = (),
+        text: str | None = None,
+    ) -> None:
         if nota.parcelas:
             return
-        section_start = self._find(lines, "parcelas")
+        document_lines = self._lines(text) if text else lines
+        section_start = self._find(document_lines, "parcelas")
         if section_start is None:
-            section_start = self._find(lines, "duplicatas")
+            section_start = self._find(document_lines, "duplicatas")
         if section_start is None:
-            section_start = self._find(lines, "fatura duplicata") or self._find(lines, "fatura")
-        section = lines[section_start:] if section_start is not None else lines
+            section_start = self._find(document_lines, "fatura duplicata") or self._find(document_lines, "fatura")
+        section = document_lines[section_start:] if section_start is not None else document_lines
+        search_text = text or "\n".join(document_lines)
 
         if nota.sub_layout == "STAMP":
+            if self._append_labeled_installments(nota, search_text):
+                return
             section_text = "\n".join(section)
             dates = re.findall(r"\b\d{2}/\d{2}/\d{4}\b", section_text)
             amounts = re.findall(r"(?<!\d)[0-9]{1,3}(?:\.[0-9]{3})*,[0-9]{2}(?!\d)", section_text)
@@ -984,24 +1050,8 @@ class NfeDanfe55Parser(BaseParser):
         if nota.parcelas:
             return
 
-        section_text = "\n".join(section)
-        number_match = re.search(r"(?im)\bnum(?:ero)?\.?\s*:?\s*(\d{3})(?!\d)", section_text)
-        date_match = re.search(r"(?im)\b(?:venc|vene)\w*\.?\s*:?\s*(\d{2}/\d{2}/\d{4})", section_text)
-        amount_match = re.search(r"(?im)\bvalor\s+[^\n]*?([0-9]{1,3}(?:[.,][0-9]{3})*[.,][0-9]{2})", section_text)
-        if number_match and date_match and amount_match:
-            number = number_match.group(1)
-            amount = decimal(amount_match.group(1))
-            if amount is not None:
-                nota.parcelas.append(
-                    Parcela(
-                        numero=number,
-                        vencimento=iso_date(date_match.group(1)),
-                        valor=amount,
-                        raw=f"{number} {date_match.group(1)} {amount_match.group(1)}",
-                        pagina=1,
-                    )
-                )
-                return
+        if self._append_labeled_installments(nota, search_text):
+            return
 
         # STAMP prints the three fatura fields in separate visual rows and
         # the PDF text order is date, value, number.

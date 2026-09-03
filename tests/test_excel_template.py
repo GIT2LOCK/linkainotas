@@ -100,6 +100,30 @@ class ExcelTemplateTests(unittest.TestCase):
                     )
                 )
 
+    def test_export_uses_one_row_per_note_and_note_total(self) -> None:
+        note = NotaFiscal(
+            arquivo="DANFE 3683.pdf",
+            numero="0003683",
+            valor_total=4465.0,
+            itens=[
+                Item(codigo="0071", valor_total=4295.0),
+                Item(codigo="0069", valor_total=170.0),
+            ],
+            parcelas=[
+                Parcela(numero="001", vencimento="2026-08-26", valor=4465.0)
+            ],
+        )
+
+        with tempfile.TemporaryDirectory() as directory:
+            output = Path(directory) / "notas.xlsx"
+            ExcelWriter(output).write([note])
+
+            launches = load_workbook(output, data_only=False)["Lançamentos"]
+            self.assertEqual(launches["N3"].value, 4465.0)
+            self.assertEqual(launches["O3"].value, datetime(2026, 8, 26))
+            self.assertIsNone(launches["E4"].value)
+            self.assertIsNone(launches["N4"].value)
+
 
 if __name__ == "__main__":
     unittest.main()

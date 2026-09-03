@@ -201,7 +201,7 @@ class ExcelWriter:
         self._logger.info(
             "Template Excel generated: %s | rows=%s | template=%s",
             self._output_path,
-            sum(len(nota.itens) or 1 for nota in rows),
+            len(rows),
             template_path,
         )
 
@@ -267,20 +267,16 @@ class ExcelWriter:
             if row_number >= self.TEMPLATE_DATA_ROW:
                 self._clear_row(row, namespace)
 
-        values = [{} for nota in notas for _item in (nota.itens or [None])]
-        # A document with multiple products uses one launch row per product.
-        # Installment values appear on the first row only to avoid duplicating
-        # the payable total when Lumina imports the rows.
-        value_index = 0
-        for nota in notas:
-            items = nota.itens or [None]
-            for item_index, item in enumerate(items):
-                values[value_index] = self._template_row_values(
-                    nota,
-                    item=item,
-                    include_installments=item_index == 0,
-                )
-                value_index += 1
+        # The accounting template receives one launch row per fiscal note.
+        # Product details remain available in the normalized/XML output, but
+        # must not duplicate the note total in the Lumina import sheet.
+        values = [{} for _nota in notas]
+        for value_index, nota in enumerate(notas):
+            values[value_index] = self._template_row_values(
+                nota,
+                item=None,
+                include_installments=True,
+            )
 
         last_template_row = max(template_rows)
         for offset, row_values in enumerate(values):

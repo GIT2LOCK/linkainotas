@@ -213,6 +213,30 @@ SFOBRAS: 2024.0010782-6 CNO - 90.020.92145/72.
         )
         self.assertIn("OBRA: FONSECA RODRIGUES-LINKA", nota.observacoes or "")
 
+    def test_recovers_labeled_due_date_from_full_document_text(self) -> None:
+        text = """DANFE
+Documento Auxiliar da Nota Fiscal Eletrônica
+CHAVE DE ACESSO
+35260715383361000131550010000036831333983943
+METALURGICA FHOENIX DO BRASIL LTDA
+VALOR TOTAL DA NOTA 4465,00
+DADOS DOS PRODUTOS / SERVIÇOS
+0071 FECHAMENTO 73089010 PC 1,00 4295,00
+0069 REQUADRO 73089090 PC 1,00 170,00
+PARCELAS
+Numero : 001
+Vencimento :
+26/08/2026
+Valor : R$ 4.465,00
+DADOS ADICIONAIS"""
+        nota = NfeDanfe55Parser().parse(
+            self._context(text, "METALURGICA FHOENIX NFE 3683.pdf", ocr_used=True)
+        )
+        self.assertEqual(
+            [(parcela.numero, parcela.vencimento, parcela.valor) for parcela in nota.parcelas],
+            [("001", "2026-08-26", 4465.0)],
+        )
+
     def test_xml_contains_canonical_metadata(self) -> None:
         nota = NotaFiscal(
             arquivo="cotia.pdf",
