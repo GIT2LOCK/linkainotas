@@ -41,7 +41,6 @@ export function ObrasTab({ canManage }: { canManage: boolean }) {
   }, [run]);
 
   const obras: ObraItem[] = list.data ?? [];
-  const escritorios = obras.filter((obra) => obra.tipo === "escritorio").length;
 
   async function submit() {
     setFeedback(null);
