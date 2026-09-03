@@ -81,7 +81,7 @@ export const getCurrentSession = createServerFn({ method: "GET" }).handler(
         perfilInterno: profile.perfilInterno,
         isPlatformSuperadmin: profile.isPlatformSuperadmin,
         empresaId: profile.empresaId,
-        avatarUrl: profile.avatarUrl,
+        avatarUrl,
       },
     };
 
